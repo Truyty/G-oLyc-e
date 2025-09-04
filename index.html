@@ -52,7 +52,7 @@
     <script type="module">
         const { createClient } = supabase;
         const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY9NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
 
         const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
         const lyceeCenter = [45.96239, 5.34721];
@@ -98,7 +98,7 @@
 
             } catch (error) {
                 console.error("Fatal initialization error:", error);
-                ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error}</p></div>`;
+                ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
             }
         });
 
@@ -116,9 +116,23 @@
 
         const initSupabase = async () => {
             appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            const { data: { session } } = await appState.supabase.auth.getSession();
-            appState.currentUser = session ? session.user : (await appState.supabase.auth.signInAnonymously()).data.user;
-            if (!appState.currentUser) throw new Error("Impossible d'authentifier l'utilisateur.");
+            
+            let { data: { session } } = await appState.supabase.auth.getSession();
+
+            if (!session) {
+                const { data, error } = await appState.supabase.auth.signInAnonymously();
+                if (error) {
+                    console.error("Supabase anonymous sign-in error:", error);
+                    throw new Error("Échec de l'authentification anonyme. Vérifiez vos paramètres Supabase.");
+                }
+                session = data.session;
+            }
+
+            if (!session || !session.user) {
+                throw new Error("Impossible d'authentifier l'utilisateur.");
+            }
+            
+            appState.currentUser = session.user;
             await checkUserSession();
         };
 
@@ -213,7 +227,6 @@
                 appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
                 appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
                 appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-                // Only center on the user if they are within the defined bounds
                 if (amberieuBounds.contains(latLng)) {
                     appState.map.setView(latLng, 18);
                 }
@@ -223,11 +236,9 @@
                 appState.userMarker.setTooltipContent(appState.userName);
             }
             
-            // Show banner if outside bounds, but don't change the view
             if (!amberieuBounds.contains(latLng)) {
                  showPermanentBanner("Vous êtes en dehors de la zone d'Ambérieu.");
             } else {
-                // If the banner is the "out of bounds" message, hide it when user is back in bounds
                  if(ui.topBanner.textContent.includes("dehors de la zone")) {
                     ui.topBanner.classList.add('hidden');
                  }
@@ -255,7 +266,7 @@
                     }
                     const friendIcon = L.divIcon({
                         className: 'custom-friend-icon',
-                        html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
+                        html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
                         iconSize: [32, 32], iconAnchor: [16, 32]
                     });
                     if (appState.friendMarkers[friendId]) {
@@ -376,9 +387,9 @@
 
         const stopQrScanner = () => {
             if (appState.html5QrCode && appState.html5QrCode.isScanning) {
-                appState.html5QrCode.stop().then(() => {
-                    ui.qrScannerModal.classList.add('hidden');
-                }).catch(err => console.error("Failed to stop QR scanner.", err));
+                appState.html5QrCode.stop()
+                    .catch(err => console.error("Le scanner n'a pas pu être arrêté correctement, mais le modal sera fermé.", err))
+                    .finally(() => ui.qrScannerModal.classList.add('hidden'));
             } else {
                 ui.qrScannerModal.classList.add('hidden');
             }
