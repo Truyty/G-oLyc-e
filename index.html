@@ -54,6 +54,13 @@
         const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
 
+        // --- Geolocation options for maximum accuracy ---
+        const highAccuracyOptions = {
+            enableHighAccuracy: true,
+            timeout: 8000, // 8 seconds to respond
+            maximumAge: 0   // No cached positions
+        };
+
         // --- Zone Definitions ---
         const lyceeCenter = [45.96239, 5.34721];
         const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
@@ -103,7 +110,7 @@
 
         const requestGeolocationPermission = () => new Promise((resolve, reject) => {
             if (!("geolocation" in navigator)) return reject("Géolocalisation non supportée.");
-            navigator.geolocation.getCurrentPosition(resolve, (error) => reject({ 1: "Accès refusé. Veuillez l'autoriser.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur de géolocalisation."), { enableHighAccuracy: true });
+            navigator.geolocation.getCurrentPosition(resolve, (error) => reject({ 1: "Accès refusé. Veuillez l'autoriser.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur de géolocalisation."), highAccuracyOptions);
         });
 
         const initSupabase = async () => {
@@ -115,7 +122,15 @@
         };
 
         const initMap = () => {
-            appState.map = L.map('map', { center: lyceeCenter, zoom: 20, zoomControl: false, attributionControl: false, maxBounds: amberieuBounds });
+            appState.map = L.map('map', { 
+                center: lyceeCenter, 
+                zoom: 20, 
+                minZoom: 16, // Empêche de trop dézoomer
+                maxZoom: 22, // Permet un zoom plus fin
+                zoomControl: false, 
+                attributionControl: false, 
+                maxBounds: amberieuBounds 
+            });
             const attr = '&copy; OpenStreetMap &copy; CARTO';
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', { attribution: attr }).addTo(appState.map);
         };
@@ -163,7 +178,8 @@
                     updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                     updateUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
                 },
-                (err) => showStatus("Erreur de géolocalisation.", 'error'), { enableHighAccuracy: true }
+                (err) => showStatus("Erreur de géolocalisation.", 'error'), 
+                highAccuracyOptions
             );
         };
 
