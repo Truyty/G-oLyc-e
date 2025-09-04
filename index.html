@@ -85,6 +85,18 @@
         </div>
     </div>
 
+    <div id="paste-id-modal" class="modal-backdrop hidden">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Ajouter par ID</h2>
+            <p class="text-gray-600 mb-6">Collez l'ID de votre ami ci-dessous.</p>
+            <input id="paste-id-input" type="text" placeholder="ID de l'ami..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
+            <button id="add-friend-from-id-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Ajouter</button>
+            <button id="close-paste-id-modal-btn" class="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1.5 hover:bg-gray-300">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </div>
+
     <div id="app-container" class="relative w-full h-full flex flex-col hidden">
         <header class="absolute top-0 inset-x-0 p-4 flex items-center justify-center z-[1000] pointer-events-none">
             <div class="bg-white/80 backdrop-blur-md px-6 py-3 rounded-full shadow-lg">
@@ -149,6 +161,18 @@
                              </label>
                          </div>
                      </div>
+                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold text-gray-700">Désactiver le scanner QR</h3>
+                                <p class="text-sm text-gray-500">Permet d'ajouter un ami en collant son ID.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="disable-scanner-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
                  </div>
             </div>
         </main>
@@ -184,7 +208,7 @@
         const appState = {
             map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
             friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
-            html5QrCode: null, geolocationEnabled: false, mapLayers: {}
+            html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: false
         };
 
         const ui = {};
@@ -202,6 +226,7 @@
                 friendsList: document.getElementById('friends-list'),
                 shareLocationToggle: document.getElementById('share-location-toggle'),
                 showAttributionToggle: document.getElementById('show-attribution-toggle'),
+                disableScannerToggle: document.getElementById('disable-scanner-toggle'),
                 topBanner: document.getElementById('top-banner'),
                 myQrCodeBtn: document.getElementById('my-qr-code-btn'),
                 scanFriendBtn: document.getElementById('scan-friend-btn'),
@@ -211,6 +236,10 @@
                 qrScannerModal: document.getElementById('qr-scanner-modal'),
                 qrScannerContainer: document.getElementById('qr-scanner-container'),
                 closeScannerModalBtn: document.getElementById('close-scanner-modal-btn'),
+                pasteIdModal: document.getElementById('paste-id-modal'),
+                pasteIdInput: document.getElementById('paste-id-input'),
+                addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
+                closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
             });
 
             try {
@@ -226,7 +255,9 @@
 
             } catch (error) {
                 console.error("Fatal initialization error:", error);
-                ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
+                if (ui.loader) {
+                    ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
+                }
             }
         });
 
@@ -259,10 +290,10 @@
             appState.map = L.map('map', { center: lyceeCenter, zoom: 18, minZoom: 16, maxZoom: 19, zoomControl: false, attributionControl: true, maxBounds: amberieuBounds });
             
             appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
             });
             appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution: '&copy; OpenStreetMap', maxNativeZoom: 19
             });
 
             appState.mapLayers.noLabels.addTo(appState.map);
@@ -518,7 +549,6 @@
                     stopLocationTracking();
                 }
             });
-            // CORRECTIF: Ajout de l'événement pour le changement de fond de carte
             ui.showAttributionToggle.addEventListener('change', (e) => {
                 if (e.target.checked) {
                     appState.map.removeLayer(appState.mapLayers.noLabels);
@@ -528,9 +558,31 @@
                     appState.map.addLayer(appState.mapLayers.noLabels);
                 }
             });
+            ui.disableScannerToggle.addEventListener('change', (e) => {
+                appState.isScannerDisabled = e.target.checked;
+            });
             ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
             ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
-            ui.scanFriendBtn.addEventListener('click', startQrScanner);
+            ui.scanFriendBtn.addEventListener('click', () => {
+                if (appState.isScannerDisabled) {
+                    ui.pasteIdModal.classList.remove('hidden');
+                } else {
+                    startQrScanner();
+                }
+            });
+            ui.closePasteIdModalBtn.addEventListener('click', () => {
+                ui.pasteIdModal.classList.add('hidden');
+            });
+            ui.addFriendFromIdBtn.addEventListener('click', () => {
+                const friendId = ui.pasteIdInput.value.trim();
+                if (friendId) {
+                    addFriend(friendId);
+                    ui.pasteIdInput.value = '';
+                    ui.pasteIdModal.classList.add('hidden');
+                } else {
+                    showStatus("Veuillez entrer un ID.", 'warning');
+                }
+            });
             ui.closeScannerModalBtn.addEventListener('click', stopQrScanner);
         };
 
