@@ -201,10 +201,7 @@
 
         const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
         const lyceeCenter = [45.96239, 5.34721];
-        const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
-        const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
-        const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
-
+        
         const appState = {
             map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
             friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
@@ -287,13 +284,19 @@
         };
 
         const initMap = () => {
-            appState.map = L.map('map', { center: lyceeCenter, zoom: 18, minZoom: 16, maxZoom: 19, zoomControl: false, attributionControl: true, maxBounds: amberieuBounds });
+            // CORRECTIF: Suppression des limites de zoom et de déplacement pour une navigation libre.
+            appState.map = L.map('map', { 
+                center: lyceeCenter, 
+                zoom: 18, // Zoom de départ par défaut
+                zoomControl: false, 
+                attributionControl: true
+            });
             
             appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
             });
             appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap', maxNativeZoom: 19
+                attribution: '&copy; OpenStreetMap'
             });
 
             appState.mapLayers.noLabels.addTo(appState.map);
@@ -369,6 +372,7 @@
         };
 
         const updateUserMarker = (lat, lng, accuracy) => {
+            const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
             const latLng = L.latLng(lat, lng);
             const userIcon = L.divIcon({
                 className: 'custom-user-icon',
@@ -450,6 +454,9 @@
         };
 
         const getLocationStatus = (lat, lng) => {
+            const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
+            const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
+            const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
             if (!lat || !lng) return "Position inconnue";
             const point = L.latLng(lat, lng);
             if (lyceeZone.getBounds().contains(point)) return "Au lycée";
