@@ -49,7 +49,7 @@
         .modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
         #qr-scanner-container { overflow: hidden; border-radius: 1rem; }
     </style>
-    <script type="module">
+    <script>
         const { createClient } = supabase;
         const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
@@ -137,7 +137,8 @@
         };
 
         const initMap = () => {
-            appState.map = L.map('map', { center: lyceeCenter, zoom: 20, minZoom: 16, maxZoom: 22, zoomControl: false, attributionControl: false, maxBounds: amberieuBounds });
+            // Correctif: Réduction du zoom maximum à 20 pour éviter les tuiles manquantes.
+            appState.map = L.map('map', { center: lyceeCenter, zoom: 20, minZoom: 16, maxZoom: 20, zoomControl: false, attributionControl: false, maxBounds: amberieuBounds });
             const attr = '&copy; OpenStreetMap &copy; CARTO';
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', { attribution: attr }).addTo(appState.map);
         };
@@ -362,25 +363,28 @@
         };
 
         const startQrScanner = async () => {
+            // Correctif: Vérifie si la librairie est chargée avant de l'utiliser.
+            if (typeof Html5Qrcode === 'undefined') {
+                showStatus("La librairie du scanner n'a pas pu être chargée.", "error");
+                return;
+            }
+
             ui.qrScannerModal.classList.remove('hidden');
             if (!appState.html5QrCode) {
                  appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
             }
             try {
-                const cameras = await Html5Qrcode.getCameras();
-                if (cameras && cameras.length) {
-                    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-                    const onScanSuccess = (decodedText) => {
+                await appState.html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText, decodedResult) => {
                         stopQrScanner();
                         addFriend(decodedText);
-                    };
-                    await appState.html5QrCode.start({ deviceId: { exact: cameras[0].id } }, config, onScanSuccess);
-                } else {
-                     showStatus("Aucune caméra trouvée.", "error");
-                     stopQrScanner();
-                }
-            } catch(err) {
-                showStatus("Erreur d'accès à la caméra.", "error");
+                    },
+                    (errorMessage) => { /* Ignore partial scans */ }
+                );
+            } catch (err) {
+                showStatus("Impossible de démarrer la caméra.", "error");
                 stopQrScanner();
             }
         };
@@ -445,7 +449,7 @@
 <body class="bg-gray-100 antialiased">
     
     <div id="loader" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[2000]">
-        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
     </div>
 
