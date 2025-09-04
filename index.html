@@ -170,7 +170,6 @@
             </div>
         </nav>
     </div>
-    <!-- CORRECTIF: Déplacement du script à la fin du body -->
     <script>
         const { createClient } = supabase;
         const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
@@ -185,7 +184,7 @@
         const appState = {
             map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
             friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
-            html5QrCode: null, geolocationEnabled: false
+            html5QrCode: null, geolocationEnabled: false, mapLayers: {}
         };
 
         const ui = {};
@@ -214,8 +213,8 @@
                 closeScannerModalBtn: document.getElementById('close-scanner-modal-btn'),
             });
 
-            initMap();
             try {
+                initMap();
                 const geoResult = await requestGeolocationPermission();
                 appState.geolocationEnabled = geoResult.success;
                 if (!geoResult.success) {
@@ -257,9 +256,17 @@
         };
 
         const initMap = () => {
-            appState.map = L.map('map', { center: lyceeCenter, zoom: 20, minZoom: 16, maxZoom: 20, zoomControl: false, attributionControl: false, maxBounds: amberieuBounds });
-            const attr = '&copy; OpenStreetMap &copy; CARTO';
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', { attribution: attr }).addTo(appState.map);
+            appState.map = L.map('map', { center: lyceeCenter, zoom: 18, minZoom: 16, maxZoom: 19, zoomControl: false, attributionControl: true, maxBounds: amberieuBounds });
+            
+            appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            });
+            appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            });
+
+            appState.mapLayers.noLabels.addTo(appState.map);
+            appState.map.attributionControl.setPrefix(false);
         };
         
         const checkUserSession = async () => {
@@ -479,6 +486,7 @@
                     () => {}
                 );
             } catch (err) {
+                console.error("Erreur du scanner QR:", err);
                 showStatus("Impossible de démarrer la caméra.", "error");
                 stopQrScanner();
             }
@@ -500,7 +508,7 @@
             ui.buttons.settings.addEventListener('click', () => showView('settings'));
             ui.buttons.map.addEventListener('click', () => {
                 if (ui.views.map.classList.contains('hidden')) showView('map');
-                else appState.map.setView(lyceeCenter, 20, { animate: true, pan: { duration: 1 } });
+                else appState.map.setView(lyceeCenter, 18, { animate: true, pan: { duration: 1 } });
             });
             ui.shareLocationToggle.addEventListener('change', (e) => {
                 if(e.target.checked) {
@@ -508,6 +516,16 @@
                     else showPermanentBanner("Activez la géolocalisation pour partager.");
                 } else {
                     stopLocationTracking();
+                }
+            });
+            // CORRECTIF: Ajout de l'événement pour le changement de fond de carte
+            ui.showAttributionToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    appState.map.removeLayer(appState.mapLayers.noLabels);
+                    appState.map.addLayer(appState.mapLayers.withLabels);
+                } else {
+                    appState.map.removeLayer(appState.mapLayers.withLabels);
+                    appState.map.addLayer(appState.mapLayers.noLabels);
                 }
             });
             ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
