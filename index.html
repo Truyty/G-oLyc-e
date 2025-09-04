@@ -52,27 +52,18 @@
     <script type="module">
         const { createClient } = supabase;
         const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY9NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
 
-        // --- Geolocation options for maximum accuracy ---
-        const highAccuracyOptions = {
-            enableHighAccuracy: true,
-            timeout: 8000, // 8 seconds to respond
-            maximumAge: 0   // No cached positions
-        };
-
-        // --- Zone Definitions ---
+        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
         const lyceeCenter = [45.96239, 5.34721];
         const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
         const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
-        const shoppingZone = L.polygon([
-            [45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]
-        ]);
+        const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
 
         const appState = {
             map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
             friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
-            html5QrCode: null,
+            html5QrCode: null, geolocationEnabled: false
         };
 
         const ui = {
@@ -85,32 +76,42 @@
             friendsList: document.getElementById('friends-list'),
             shareLocationToggle: document.getElementById('share-location-toggle'),
             showAttributionToggle: document.getElementById('show-attribution-toggle'),
-            locationBanner: document.getElementById('location-banner'),
-            myQrCodeBtn: document.getElementById('my-qr-code-btn'),
-            scanFriendBtn: document.getElementById('scan-friend-btn'),
-            myQrCodeModal: document.getElementById('my-qr-code-modal'),
-            qrCodeContainer: document.getElementById('qr-code-container'),
+            topBanner: document.getElementById('top-banner'),
+            myQrCodeBtn: document.getElementById('my-qr-code-btn'), scanFriendBtn: document.getElementById('scan-friend-btn'),
+            myQrCodeModal: document.getElementById('my-qr-code-modal'), qrCodeContainer: document.getElementById('qr-code-container'),
             closeQrCodeModalBtn: document.getElementById('close-qr-code-modal-btn'),
-            qrScannerModal: document.getElementById('qr-scanner-modal'),
-            qrScannerContainer: document.getElementById('qr-scanner-container'),
+            qrScannerModal: document.getElementById('qr-scanner-modal'), qrScannerContainer: document.getElementById('qr-scanner-container'),
             closeScannerModalBtn: document.getElementById('close-scanner-modal-btn'),
         };
         
         document.addEventListener('DOMContentLoaded', async () => {
             initMap();
             try {
-                await requestGeolocationPermission();
+                const geoResult = await requestGeolocationPermission();
+                appState.geolocationEnabled = geoResult.success;
+                if (!geoResult.success) {
+                    showPermanentBanner(geoResult.error);
+                }
+                
                 await initSupabase();
                 setupEventListeners();
+
             } catch (error) {
                 console.error("Fatal initialization error:", error);
                 ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error}</p></div>`;
             }
         });
 
-        const requestGeolocationPermission = () => new Promise((resolve, reject) => {
-            if (!("geolocation" in navigator)) return reject("Géolocalisation non supportée.");
-            navigator.geolocation.getCurrentPosition(resolve, (error) => reject({ 1: "Accès refusé. Veuillez l'autoriser.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur de géolocalisation."), highAccuracyOptions);
+        const requestGeolocationPermission = () => new Promise((resolve) => {
+            if (!("geolocation" in navigator)) {
+                resolve({ success: false, error: "Géolocalisation non supportée par ce navigateur." });
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ success: true, position: pos }),
+                (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée. Activez-la pour apparaître sur la carte.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur de géolocalisation." }),
+                highAccuracyOptions
+            );
         });
 
         const initSupabase = async () => {
@@ -122,15 +123,7 @@
         };
 
         const initMap = () => {
-            appState.map = L.map('map', { 
-                center: lyceeCenter, 
-                zoom: 20, 
-                minZoom: 16, // Empêche de trop dézoomer
-                maxZoom: 22, // Permet un zoom plus fin
-                zoomControl: false, 
-                attributionControl: false, 
-                maxBounds: amberieuBounds 
-            });
+            appState.map = L.map('map', { center: lyceeCenter, zoom: 20, minZoom: 16, maxZoom: 22, zoomControl: false, attributionControl: false, maxBounds: amberieuBounds });
             const attr = '&copy; OpenStreetMap &copy; CARTO';
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', { attribution: attr }).addTo(appState.map);
         };
@@ -142,7 +135,9 @@
                 appState.isSharing = data.is_sharing !== false;
                 ui.shareLocationToggle.checked = appState.isSharing;
                 await fetchAndDisplayFriends();
-                if (appState.isSharing) startLocationTracking();
+                if (appState.isSharing && appState.geolocationEnabled) {
+                    startLocationTracking();
+                }
                 listenToFriendLocations();
                 ui.loader.classList.add('hidden');
                 ui.appContainer.classList.remove('hidden');
@@ -161,7 +156,9 @@
                 ui.nameModal.style.display = 'none';
                 ui.appContainer.classList.remove('hidden');
                 await fetchAndDisplayFriends();
-                startLocationTracking();
+                if (appState.isSharing && appState.geolocationEnabled) {
+                    startLocationTracking();
+                }
                 listenToFriendLocations();
                 showView('map');
             } else {
@@ -178,7 +175,10 @@
                     updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                     updateUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
                 },
-                (err) => showStatus("Erreur de géolocalisation.", 'error'), 
+                (err) => {
+                    showPermanentBanner("Erreur ou perte de la géolocalisation.");
+                    stopLocationTracking();
+                }, 
                 highAccuracyOptions
             );
         };
@@ -201,9 +201,7 @@
         };
 
         const updateUserMarker = (lat, lng, accuracy) => {
-            const latLng = [lat, lng];
-            if (!amberieuBounds.contains(latLng)) ui.locationBanner.classList.remove('hidden');
-            else ui.locationBanner.classList.add('hidden');
+            const latLng = L.latLng(lat, lng);
             
             const userIcon = L.divIcon({
                 className: 'custom-user-icon',
@@ -215,11 +213,24 @@
                 appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
                 appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
                 appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-                appState.map.setView(latLng, 18);
+                // Only center on the user if they are within the defined bounds
+                if (amberieuBounds.contains(latLng)) {
+                    appState.map.setView(latLng, 18);
+                }
             } else {
                 appState.userMarker.setLatLng(latLng);
                 appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
                 appState.userMarker.setTooltipContent(appState.userName);
+            }
+            
+            // Show banner if outside bounds, but don't change the view
+            if (!amberieuBounds.contains(latLng)) {
+                 showPermanentBanner("Vous êtes en dehors de la zone d'Ambérieu.");
+            } else {
+                // If the banner is the "out of bounds" message, hide it when user is back in bounds
+                 if(ui.topBanner.textContent.includes("dehors de la zone")) {
+                    ui.topBanner.classList.add('hidden');
+                 }
             }
         };
 
@@ -339,23 +350,37 @@
             ui.myQrCodeModal.classList.remove('hidden');
         };
 
-        const startQrScanner = () => {
+        const startQrScanner = async () => {
             ui.qrScannerModal.classList.remove('hidden');
-            appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            const onScanSuccess = (decodedText, decodedResult) => {
+            if (!appState.html5QrCode) {
+                 appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
+            }
+            try {
+                const cameras = await Html5Qrcode.getCameras();
+                if (cameras && cameras.length) {
+                    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                    const onScanSuccess = (decodedText) => {
+                        stopQrScanner();
+                        addFriend(decodedText);
+                    };
+                    await appState.html5QrCode.start({ deviceId: { exact: cameras[0].id } }, config, onScanSuccess);
+                } else {
+                     showStatus("Aucune caméra trouvée.", "error");
+                     stopQrScanner();
+                }
+            } catch(err) {
+                showStatus("Erreur d'accès à la caméra.", "error");
                 stopQrScanner();
-                addFriend(decodedText);
-            };
-            appState.html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+            }
         };
 
         const stopQrScanner = () => {
-            if (appState.html5QrCode) {
+            if (appState.html5QrCode && appState.html5QrCode.isScanning) {
                 appState.html5QrCode.stop().then(() => {
                     ui.qrScannerModal.classList.add('hidden');
-                    appState.html5QrCode = null;
                 }).catch(err => console.error("Failed to stop QR scanner.", err));
+            } else {
+                ui.qrScannerModal.classList.add('hidden');
             }
         };
         
@@ -367,7 +392,14 @@
                 if (ui.views.map.classList.contains('hidden')) showView('map');
                 else appState.map.setView(lyceeCenter, 20, { animate: true, pan: { duration: 1 } });
             });
-            ui.shareLocationToggle.addEventListener('change', (e) => e.target.checked ? startLocationTracking() : stopLocationTracking());
+            ui.shareLocationToggle.addEventListener('change', (e) => {
+                if(e.target.checked) {
+                    if (appState.geolocationEnabled) startLocationTracking();
+                    else showPermanentBanner("Activez la géolocalisation pour partager votre position.");
+                } else {
+                    stopLocationTracking();
+                }
+            });
             ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
             ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
             ui.scanFriendBtn.addEventListener('click', startQrScanner);
@@ -390,6 +422,13 @@
             ui.status.classList.remove('hidden');
             setTimeout(() => ui.status.classList.add('hidden'), 3000);
         };
+        
+        const showPermanentBanner = (message) => {
+            ui.topBanner.textContent = message;
+            ui.topBanner.className = 'absolute top-24 inset-x-0 mx-auto w-max bg-red-100 text-red-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000]';
+            ui.topBanner.classList.remove('hidden');
+        };
+
     </script>
 </head>
 <body class="bg-gray-100 antialiased">
@@ -434,8 +473,8 @@
             </div>
         </header>
         
-        <div id="location-banner" class="absolute top-24 inset-x-0 mx-auto w-max bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000] hidden">
-            Vous êtes en dehors de la zone du lycée
+        <div id="top-banner" class="absolute top-24 inset-x-0 mx-auto w-max bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000] hidden">
+            Message
         </div>
 
         <main class="flex-grow w-full h-full relative overflow-hidden">
