@@ -14,23 +14,36 @@
 </head>
 <body class="bg-gray-100 antialiased">
     
-    <!-- Écran de chargement -->
     <div id="loader" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[2000]">
         <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
     </div>
 
-    <!-- Modale pour entrer le prénom -->
-    <div id="name-input-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
-            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
-            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
+    <!-- Vue d'authentification (Connexion / Inscription) -->
+    <div id="auth-view" class="fixed inset-0 bg-gray-100 flex items-center justify-center p-4 z-[1500] hidden">
+        <div class="w-full max-w-md">
+            <div class="bg-white p-8 rounded-2xl shadow-lg text-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">GéoLycée</h1>
+                <!-- Formulaire de connexion -->
+                <form id="login-form">
+                    <h2 class="text-xl font-semibold mb-4">Connexion</h2>
+                    <input id="login-name" type="text" placeholder="Votre nom" required class="w-full p-3 mb-4 border rounded-lg">
+                    <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg">
+                    <button type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold">Se connecter</button>
+                </form>
+                <p class="my-4 text-gray-500">ou</p>
+                <!-- Formulaire d'inscription -->
+                <form id="signup-form">
+                    <h2 class="text-xl font-semibold mb-4">Inscription</h2>
+                    <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg">
+                    <input id="signup-lastname" type="text" placeholder="Nom" required class="w-full p-3 mb-4 border rounded-lg">
+                    <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg">
+                    <button type="submit" class="w-full bg-green-500 text-white p-3 rounded-lg font-bold">Créer un compte</button>
+                </form>
+            </div>
         </div>
     </div>
     
-    <!-- Modale pour afficher le QR Code -->
     <div id="my-qr-code-modal" class="modal-backdrop hidden">
         <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-xs shadow-2xl relative">
             <h2 class="text-xl font-bold text-gray-800 mb-4">Votre QR Code</h2>
@@ -42,7 +55,6 @@
         </div>
     </div>
 
-    <!-- Modale pour le scanner QR -->
     <div id="qr-scanner-modal" class="modal-backdrop hidden">
         <div class="bg-white p-4 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
             <h2 class="text-xl font-bold text-gray-800 mb-4">Scanner un ami</h2>
@@ -51,7 +63,6 @@
         </div>
     </div>
 
-    <!-- Modale pour coller l'ID -->
     <div id="paste-id-modal" class="modal-backdrop hidden">
         <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
             <h2 class="text-xl font-bold text-gray-800 mb-4">Ajouter par ID</h2>
@@ -64,7 +75,6 @@
         </div>
     </div>
 
-    <!-- Conteneur principal de l'application -->
     <div id="app-container" class="relative w-full h-full flex flex-col hidden">
         <header class="absolute top-0 inset-x-0 p-4 flex items-center justify-center z-[1000] pointer-events-none">
             <div class="bg-white/80 backdrop-blur-md px-6 py-3 rounded-full shadow-lg">
@@ -77,12 +87,10 @@
         </div>
 
         <main class="flex-grow w-full h-full relative overflow-hidden">
-            <!-- Vue Carte -->
             <div id="map-view" class="w-full h-full">
                 <div id="map"></div>
                 <div id="status" class="hidden"></div>
             </div>
-            <!-- Vue Amis -->
             <div id="friends-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
                 <div class="max-w-md mx-auto">
                     <h2 class="text-3xl font-bold text-gray-800 mb-6">Amis</h2>
@@ -91,9 +99,9 @@
                              <svg class="w-8 h-8 mx-auto text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
                             <span class="font-semibold text-gray-700">Mon QR Code</span>
                         </button>
-                         <button id="scan-friend-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
+                         <button id="add-friend-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
                             <svg class="w-8 h-8 mx-auto text-purple-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
-                            <span class="font-semibold text-gray-700">Scanner un ami</span>
+                            <span class="font-semibold text-gray-700">Ajouter un ami</span>
                         </button>
                     </div>
                     <div>
@@ -102,7 +110,6 @@
                     </div>
                 </div>
             </div>
-            <!-- Vue Paramètres -->
             <div id="settings-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
                  <div class="max-w-md mx-auto">
                     <h2 class="text-3xl font-bold text-gray-800 mb-6">Paramètres</h2>
@@ -137,16 +144,18 @@
                                 <p class="text-sm text-gray-500">Permet d'ajouter un ami en collant son ID.</p>
                             </div>
                             <label class="switch">
-                                <input type="checkbox" id="disable-scanner-toggle">
+                                <input type="checkbox" id="disable-scanner-toggle" checked>
                                 <span class="slider"></span>
                             </label>
                         </div>
+                    </div>
+                    <div class="mt-8">
+                        <button id="logout-btn" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold">Se déconnecter</button>
                     </div>
                  </div>
             </div>
         </main>
         
-        <!-- Menu de navigation -->
         <nav class="bottom-nav">
             <div class="nav-content">
                 <button id="friends-btn-container" class="menu-btn-container">
