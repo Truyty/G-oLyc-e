@@ -16,23 +16,10 @@ const ui = {};
 document.addEventListener('DOMContentLoaded', async () => {
     Object.assign(ui, {
         loader: document.getElementById('loader'),
-        authView: document.getElementById('auth-view'),
+        nameModal: document.getElementById('name-input-modal'),
+        nameInput: document.getElementById('name-input'),
+        saveNameBtn: document.getElementById('save-name-btn'),
         appContainer: document.getElementById('app-container'),
-        loginContainer: document.getElementById('login-container'),
-        signupContainer: document.getElementById('signup-container'),
-        loginForm: document.getElementById('login-form'),
-        signupForm: document.getElementById('signup-form'),
-        loginNameInput: document.getElementById('login-name'),
-        loginPasswordInput: document.getElementById('login-password'),
-        signupFirstnameInput: document.getElementById('signup-firstname'),
-        signupLastnameInput: document.getElementById('signup-lastname'),
-        signupPasswordInput: document.getElementById('signup-password'),
-        loginBtn: document.getElementById('login-btn'),
-        signupBtn: document.getElementById('signup-btn'),
-        showLoginBtn: document.getElementById('show-login-btn'),
-        showSignupBtn: document.getElementById('show-signup-btn'),
-        signupStatus: document.getElementById('signup-status'),
-        loginStatus: document.getElementById('login-status'),
         views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
         buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
         status: document.getElementById('status'),
@@ -53,7 +40,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         pasteIdInput: document.getElementById('paste-id-input'),
         addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
         closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
-        logoutBtn: document.getElementById('logout-btn'),
     });
 
     try {
@@ -93,10 +79,14 @@ const initSupabase = async () => {
     
     if (session) {
         appState.currentUser = session.user;
-        await loadUserProfile();
+        await loadApp();
     } else {
-        ui.loader.classList.add('hidden');
-        ui.authView.classList.remove('hidden');
+        const { data, error } = await appState.supabase.auth.signInAnonymously();
+        if (error) {
+            throw new Error("Échec de l'authentification anonyme.");
+        }
+        appState.currentUser = data.user;
+        await loadApp();
     }
 };
 
@@ -121,134 +111,49 @@ const initMap = () => {
     appState.map.attributionControl.setPrefix(false);
 };
 
-const loadUserProfile = async () => {
-    const { data: profile, error } = await appState.supabase.from('profiles').select('full_name').eq('id', appState.currentUser.id).single();
+const loadApp = async () => {
+    const { data } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
 
-    if (error || !profile) {
-        showStatus("Impossible de charger le profil.", 'error');
-        handleLogout();
-        return;
-    }
-    
-    appState.userName = profile.full_name;
-    const { data: location } = await appState.supabase.from('locations').select('is_sharing').eq('user_id', appState.currentUser.id).single();
-    appState.isSharing = location ? location.is_sharing : true;
+    if (data && data.name) {
+        appState.userName = data.name;
+        appState.isSharing = data.is_sharing;
+        ui.shareLocationToggle.checked = appState.isSharing;
+        
+        ui.loader.classList.add('hidden');
+        ui.appContainer.classList.remove('hidden');
+        showView('map');
 
-    ui.shareLocationToggle.checked = appState.isSharing;
-    ui.disableScannerToggle.checked = appState.isScannerDisabled;
+        const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+        appState.map.setMaxBounds(mapBounds);
 
-    ui.loader.classList.add('hidden');
-    ui.authView.classList.add('hidden');
-    ui.appContainer.classList.remove('hidden');
-    showView('map');
-
-    // CORRECTIF : On applique les limites de la carte une fois qu'elle est visible
-    const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
-    appState.map.setMaxBounds(mapBounds);
-
-    setTimeout(async () => {
         await fetchAndDisplayFriends();
         if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
         listenToFriendLocations();
-    }, 100);
-};
-
-const handleSignUp = async (event) => {
-    event.preventDefault();
-    ui.signupBtn.disabled = true;
-    ui.signupBtn.textContent = 'Création...';
-    showAuthStatus(ui.signupStatus, '', 'success');
-    
-    const prenom = ui.signupFirstnameInput.value.trim();
-    const nom = ui.signupLastnameInput.value.trim().toLowerCase();
-    const password = ui.signupPasswordInput.value;
-
-    if (!nom || !prenom || !password) {
-        showAuthStatus(ui.signupStatus, 'Veuillez remplir tous les champs.', 'error');
-        ui.signupBtn.disabled = false;
-        ui.signupBtn.textContent = 'Créer un compte';
-        return;
-    }
-
-    const email = `${nom}@geolycee.app`;
-    const fullName = `${prenom} ${nom.charAt(0).toUpperCase() + nom.slice(1)}`;
-
-    try {
-        const { data, error } = await appState.supabase.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-                data: {
-                    full_name: fullName
-                }
-            }
-        });
-
-        if (error) {
-            showAuthStatus(ui.signupStatus, "Ce nom d'utilisateur existe déjà.", 'error');
-        } else {
-            showAuthStatus(ui.signupStatus, 'Création de compte réussie ! Redirection...', 'success');
-            ui.signupForm.reset();
-            setTimeout(() => {
-                ui.signupContainer.classList.add('hidden');
-                ui.loginContainer.classList.remove('hidden');
-                showAuthStatus(ui.signupStatus, '', 'success');
-            }, 2000);
-        }
-    } catch(e) {
-        showAuthStatus(ui.signupStatus, "Une erreur est survenue.", "error");
-    } finally {
-        ui.signupBtn.disabled = false;
-        ui.signupBtn.textContent = 'Créer un compte';
+    } else {
+        ui.loader.classList.add('hidden');
+        ui.nameModal.style.display = 'flex';
     }
 };
 
-const handleLogin = async (event) => {
-    event.preventDefault();
-    ui.loginBtn.disabled = true;
-    ui.loginBtn.textContent = 'Connexion...';
-    showAuthStatus(ui.loginStatus, '', 'success');
+const saveUserName = async () => {
+    const name = ui.nameInput.value.trim();
+    if (name) {
+        appState.userName = name;
+        await updateSupabaseLocation({ name: appState.userName, is_sharing: true });
+        ui.nameModal.style.display = 'none';
+        
+        ui.appContainer.classList.remove('hidden');
+        showView('map');
 
-    const nom = ui.loginNameInput.value.trim().toLowerCase();
-    const password = ui.loginPasswordInput.value;
+        const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+        appState.map.setMaxBounds(mapBounds);
 
-    if (!nom || !password) {
-        showAuthStatus(ui.loginStatus, 'Veuillez remplir tous les champs.', 'error');
-        ui.loginBtn.disabled = false;
-        ui.loginBtn.textContent = 'Se connecter';
-        return;
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    } else {
+        showStatus("Veuillez entrer un prénom.", 'warning');
     }
-
-    const email = `${nom}@geolycee.app`;
-
-    try {
-        const { data, error } = await appState.supabase.auth.signInWithPassword({
-            email: email,
-            password: password,
-        });
-
-        if (error) {
-            if (error.message.includes("Invalid login credentials")) {
-                showAuthStatus(ui.loginStatus, "Nom ou mot de passe incorrect.", 'error');
-            } else {
-                showAuthStatus(ui.loginStatus, "Une erreur de connexion est survenue.", 'error');
-            }
-        } else {
-            showStatus("Vous êtes connecté !", "success");
-            appState.currentUser = data.user;
-            await loadUserProfile();
-        }
-    } catch (e) {
-        showAuthStatus(ui.loginStatus, "Une erreur est survenue.", "error");
-    } finally {
-        ui.loginBtn.disabled = false;
-        ui.loginBtn.textContent = 'Se connecter';
-    }
-};
-
-const handleLogout = async () => {
-    await appState.supabase.auth.signOut();
-    window.location.reload();
 };
 
 const startLocationTracking = () => {
@@ -319,7 +224,11 @@ const updateUserMarker = (coords) => {
         appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
         appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
         appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-        appState.map.setView(latLng, 18);
+        
+        const distanceToLycee = latLng.distanceTo(lyceeCenter);
+        if (distanceToLycee <= 1000) {
+            appState.map.setView(latLng, 18);
+        }
     } else {
         appState.userMarker.setLatLng(latLng);
         appState.userMarker.setIcon(userIcon);
@@ -338,7 +247,7 @@ const listenToFriendLocations = () => {
             renderFriendList();
             
             const friendId = friendData.user_id;
-            const friendName = appState.friends[friendId].full_name;
+            const friendName = appState.friends[friendId].name;
             const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
 
             if (!shouldDisplay) {
@@ -365,14 +274,14 @@ const listenToFriendLocations = () => {
 const addFriend = async (friendId) => {
     if (!friendId) return showStatus("ID invalide.", 'warning');
     if (friendId === appState.currentUser.id) return showStatus("Vous ne pouvez pas vous ajouter.", 'warning');
-    const { data: friendExists } = await appState.supabase.from('profiles').select('full_name').eq('id', friendId).single();
+    const { data: friendExists } = await appState.supabase.from('locations').select('name').eq('user_id', friendId).single();
     if (!friendExists) return showStatus("Utilisateur introuvable.", 'error');
     const { error } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
     if (error) {
-        if (error.code === '23505') showStatus(`${friendExists.full_name} est déjà votre ami.`, 'warning');
+        if (error.code === '23505') showStatus(`${friendExists.name} est déjà votre ami.`, 'warning');
         else showStatus("Erreur lors de l'ajout.", 'error');
     } else {
-        showStatus(`${friendExists.full_name} a été ajouté(e) !`, 'success');
+        showStatus(`${friendExists.name} a été ajouté(e) !`, 'success');
         await fetchAndDisplayFriends();
     }
 };
@@ -381,13 +290,11 @@ const fetchAndDisplayFriends = async () => {
     const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
     const friendIds = relations.map(r => r.friend_id);
     if (friendIds.length === 0) return renderFriendList();
-    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, lat, lng, is_sharing').in('user_id', friendIds);
-    const { data: profilesData } = await appState.supabase.from('profiles').select('id, full_name').in('id', friendIds);
+    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, name, lat, lng, is_sharing').in('user_id', friendIds);
     
     appState.friends = {};
-    profilesData.forEach(profile => {
-        const location = friendsData.find(loc => loc.user_id === profile.id) || {};
-        appState.friends[profile.id] = { ...profile, ...location };
+    friendsData.forEach(friend => {
+        appState.friends[friend.user_id] = friend;
     });
     renderFriendList();
 };
@@ -418,7 +325,7 @@ const renderFriendList = () => {
         li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
         li.innerHTML = `
             <div class="flex items-center justify-between">
-                <span class="font-medium text-gray-800">${friend.full_name}</span>
+                <span class="font-medium text-gray-800">${friend.name}</span>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
             </div>
             <p class="text-sm text-gray-500 mt-1">${status}</p>`;
@@ -432,9 +339,9 @@ const centerOnFriend = (friendId) => {
     if (friend && friend.is_sharing !== false && appState.friendMarkers[friendId]) {
         showView('map');
         appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
-        showStatus(`Centrage sur ${friend.full_name}`, 'info');
+        showStatus(`Centrage sur ${friend.name}`, 'info');
     } else {
-        showStatus(`${friend.full_name} ne partage pas sa position.`, 'warning');
+        showStatus(`${friend.name} ne partage pas sa position.`, 'warning');
     }
 };
 
@@ -480,17 +387,7 @@ const stopQrScanner = () => {
 };
 
 const setupEventListeners = () => {
-    ui.loginForm.addEventListener('submit', handleLogin);
-    ui.signupForm.addEventListener('submit', handleSignUp);
-    ui.logoutBtn.addEventListener('click', handleLogout);
-    ui.showLoginBtn.addEventListener('click', () => {
-        ui.signupContainer.classList.add('hidden');
-        ui.loginContainer.classList.remove('hidden');
-    });
-    ui.showSignupBtn.addEventListener('click', () => {
-        ui.loginContainer.classList.add('hidden');
-        ui.signupContainer.classList.remove('hidden');
-    });
+    ui.saveNameBtn.addEventListener('click', saveUserName);
 
     ui.buttons.friends.addEventListener('click', () => showView('friends'));
     ui.buttons.settings.addEventListener('click', () => showView('settings'));
@@ -562,11 +459,6 @@ const showStatus = (message, type = 'info') => {
             ui.status.classList.add('hidden');
         }
     }, 3000);
-};
-
-const showAuthStatus = (element, message, type = 'error') => {
-    element.textContent = message;
-    element.className = `mb-4 text-sm font-semibold ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
 };
 
 const showPermanentBanner = (message) => {
