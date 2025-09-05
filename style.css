@@ -1,177 +1,36 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GéoLycée</title>
-    
-    <!-- CSS Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    
-    <!-- Votre fichier CSS -->
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-gray-100 antialiased">
-    
-    <!-- Écran de chargement -->
-    <div id="loader" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[2000]">
-        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
-    </div>
-
-    <!-- Modale pour entrer le prénom -->
-    <div id="name-input-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
-            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
-            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
-        </div>
-    </div>
-    
-    <!-- Modale pour afficher le QR Code -->
-    <div id="my-qr-code-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-xs shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Votre QR Code</h2>
-            <div id="qr-code-container" class="bg-gray-100 p-4 rounded-lg flex justify-center items-center"></div>
-            <p class="text-sm text-gray-500 mt-4">Montrez ce code à vos amis pour qu'ils vous ajoutent.</p>
-            <button id="close-qr-code-modal-btn" class="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1.5 hover:bg-gray-300">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Modale pour le scanner QR -->
-    <div id="qr-scanner-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-4 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Scanner un ami</h2>
-            <div id="qr-scanner-container" class="w-full" style="max-width: 400px;"></div>
-             <button id="close-scanner-modal-btn" class="mt-4 bg-red-500 text-white px-6 py-2 rounded-lg font-bold">Annuler</button>
-        </div>
-    </div>
-
-    <!-- Modale pour coller l'ID -->
-    <div id="paste-id-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Ajouter par ID</h2>
-            <p class="text-gray-600 mb-6">Collez l'ID de votre ami ci-dessous.</p>
-            <input id="paste-id-input" type="text" placeholder="ID de l'ami..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="add-friend-from-id-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Ajouter</button>
-            <button id="close-paste-id-modal-btn" class="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1.5 hover:bg-gray-300">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Conteneur principal de l'application -->
-    <div id="app-container" class="relative w-full h-full flex flex-col hidden">
-        <header class="absolute top-0 inset-x-0 p-4 flex items-center justify-center z-[1000] pointer-events-none">
-            <div class="bg-white/80 backdrop-blur-md px-6 py-3 rounded-full shadow-lg">
-                <h1 class="text-xl font-bold text-gray-800 tracking-tight">GéoLycée</h1>
-            </div>
-        </header>
-        
-        <div id="top-banner" class="absolute top-24 inset-x-0 mx-auto w-max bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000] hidden">
-            Message
-        </div>
-
-        <main class="flex-grow w-full h-full relative overflow-hidden">
-            <!-- Vue Carte -->
-            <div id="map-view" class="w-full h-full">
-                <div id="map"></div>
-                <div id="status" class="hidden"></div>
-            </div>
-            <!-- Vue Amis -->
-            <div id="friends-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
-                <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Amis</h2>
-                    <div class="grid grid-cols-2 gap-4 mb-8">
-                        <button id="my-qr-code-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
-                             <svg class="w-8 h-8 mx-auto text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
-                            <span class="font-semibold text-gray-700">Mon QR Code</span>
-                        </button>
-                         <button id="scan-friend-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
-                            <svg class="w-8 h-8 mx-auto text-purple-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
-                            <span class="font-semibold text-gray-700">Scanner un ami</span>
-                        </button>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-gray-700 mb-3">Ma liste d'amis</h3>
-                        <ul id="friends-list" class="space-y-3"></ul>
-                    </div>
-                </div>
-            </div>
-            <!-- Vue Paramètres -->
-            <div id="settings-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
-                 <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Paramètres</h2>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                         <div class="flex items-center justify-between">
-                             <div>
-                                 <h3 class="font-semibold text-gray-700">Partager ma position</h3>
-                                 <p class="text-sm text-gray-500">Permet à vos amis de voir votre position.</p>
-                             </div>
-                             <label class="switch">
-                                 <input type="checkbox" id="share-location-toggle" checked>
-                                 <span class="slider"></span>
-                             </label>
-                         </div>
-                     </div>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4">
-                         <div class="flex items-center justify-between">
-                             <div>
-                                 <h3 class="font-semibold text-gray-700">Noms des rues & Légende</h3>
-                                 <p class="text-sm text-gray-500">Affiche les détails et les crédits.</p>
-                             </div>
-                             <label class="switch">
-                                 <input type="checkbox" id="show-attribution-toggle">
-                                 <span class="slider"></span>
-                             </label>
-                         </div>
-                     </div>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h3 class="font-semibold text-gray-700">Désactiver le scanner QR</h3>
-                                <p class="text-sm text-gray-500">Permet d'ajouter un ami en collant son ID.</p>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="disable-scanner-toggle">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                 </div>
-            </div>
-        </main>
-        
-        <!-- Menu de navigation -->
-        <nav class="bottom-nav">
-            <div class="nav-content">
-                <button id="friends-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
-                    <span>Amis</span>
-                </button>
-                <button id="map-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7-7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg></div>
-                    <span>Carte</span>
-                </button>
-                <button id="settings-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.72C8.63,5.96,8.1,6.29,7.6,6.67L5.21,5.71C4.99,5.62,4.74,5.69,4.62,5.91L2.7,9.23 c-0.11,0.2-0.06,0.47,0.12,0.61L4.85,11.4c-0.05,0.3-0.07,0.62-0.07,0.94c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.38,2.91 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17-0.48,0.41l0.38-2.91c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.01,0.59-0.22l1.92-3.32c0.12-0.2,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></div>
-                    <span>Paramètres</span>
-                </button>
-            </div>
-        </nav>
-    </div>
-
-    <!-- JS Libraries -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
-    
-    <!-- Votre fichier JavaScript -->
-    <script src="script.js" defer></script>
-</body>
-</html>
+body, html {
+    height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', sans-serif;
+}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+#map { height: 100%; width: 100%; background-color: #f0f0f0; }
+.leaflet-tooltip.name-tooltip {
+    background-color: rgba(255, 255, 255, 0.9); backdrop-filter: blur(5px); border: none;
+    border-radius: 8px; padding: 4px 10px; font-weight: 600; color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    70% { transform: scale(3); opacity: 0; }
+    100% { transform: scale(3); opacity: 0; }
+}
+.pulse-ring {
+    position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; border-radius: 50%;
+    background-color: #3B82F6; animation: pulse 2s ease-out infinite; z-index: -1;
+    transform: translate(-50%, -50%);
+}
+.switch { position: relative; display: inline-block; width: 48px; height: 28px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #3B82F6; }
+input:checked + .slider:before { transform: translateX(20px); }
+.bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background-color: white; border-top: 1px solid #e5e7eb; box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05); z-index: 1000; }
+.nav-content { display: flex; justify-content: space-around; align-items: center; max-width: 448px; margin: auto; padding: 0.5rem 1rem; }
+.menu-btn-container { display: flex; flex-direction: column; align-items: center; padding: 0.25rem; border-radius: 12px; transition: all 0.2s ease-in-out; color: #4B5563; width: 72px; height: 64px; justify-content: center; }
+.menu-btn-container.active-menu { color: #4338CA; }
+.menu-btn-container.active-menu .menu-icon { transform: scale(1.2) translateY(-2px); background-color: #E0E7FF; }
+.menu-btn-container span { font-size: 0.75rem; margin-top: 0.3rem; font-weight: 600; transition: opacity 0.2s ease-in-out; }
+.menu-btn-container:not(.active-menu) span { opacity: 0; }
+.menu-icon { padding: 0.75rem; border-radius: 9999px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+#qr-scanner-container { overflow: hidden; border-radius: 1rem; }
