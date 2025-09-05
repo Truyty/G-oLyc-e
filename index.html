@@ -19,13 +19,41 @@
         <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
     </div>
 
-    <!-- Modal pour demander le prénom au premier lancement -->
-    <div id="name-input-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
-            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
-            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
+    <!-- Écran d'Authentification -->
+    <div id="auth-view" class="h-full w-full flex items-center justify-center p-4 bg-gray-50 hidden">
+        <div class="w-full max-w-md">
+            <!-- Formulaire d'Inscription -->
+            <div id="signup-container">
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Créer un compte</h2>
+                    <form id="signup-form">
+                        <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
+                        <input id="signup-lastname" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
+                        <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="new-password">
+                        <div id="signup-status" class="mb-4 text-sm font-semibold"></div>
+                        <button id="signup-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Créer un compte</button>
+                    </form>
+                </div>
+                <p class="text-center text-gray-600 mt-4">
+                    ou <button id="show-login-btn" class="font-semibold text-blue-600 hover:underline">se connecter</button>
+                </p>
+            </div>
+
+            <!-- Formulaire de Connexion -->
+            <div id="login-container" class="hidden">
+                <div class="bg-white p-8 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Se connecter</h2>
+                    <form id="login-form">
+                        <input id="login-name" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="username">
+                        <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
+                        <div id="login-status" class="mb-4 text-sm font-semibold"></div>
+                        <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Se connecter</button>
+                    </form>
+                </div>
+                <p class="text-center text-gray-600 mt-4">
+                    Pas de compte ? <button id="show-signup-btn" class="font-semibold text-blue-600 hover:underline">Créer un compte</button>
+                </p>
+            </div>
         </div>
     </div>
     
@@ -133,6 +161,9 @@
                                 <span class="slider"></span>
                             </label>
                         </div>
+                    </div>
+                    <div class="mt-8">
+                        <button id="logout-btn" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold hover:bg-red-600">Se déconnecter</button>
                     </div>
                  </div>
             </div>
