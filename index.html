@@ -22,24 +22,33 @@
     <!-- Vue d'authentification (Connexion / Inscription) -->
     <div id="auth-view" class="fixed inset-0 bg-gray-100 flex items-center justify-center p-4 z-[1500] hidden">
         <div class="w-full max-w-md">
-            <div class="bg-white p-8 rounded-2xl shadow-lg text-center">
-                <h1 class="text-3xl font-bold text-gray-800 mb-6">GéoLycée</h1>
-                <!-- Formulaire de connexion -->
-                <form id="login-form">
-                    <h2 class="text-xl font-semibold mb-4">Connexion</h2>
-                    <input id="login-name" type="text" placeholder="Votre nom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="username">
-                    <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
-                    <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold disabled:bg-blue-300 transition-colors">Se connecter</button>
-                </form>
-                <p class="my-4 text-gray-500">ou</p>
-                <!-- Formulaire d'inscription -->
+            <div id="signup-container" class="bg-white p-8 rounded-2xl shadow-lg text-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">GéoLycée</h1>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Créer un compte</h2>
                 <form id="signup-form">
-                    <h2 class="text-xl font-semibold mb-4">Inscription</h2>
                     <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
                     <input id="signup-lastname" type="text" placeholder="Nom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
                     <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="new-password">
                     <button id="signup-btn" type="submit" class="w-full bg-green-500 text-white p-3 rounded-lg font-bold disabled:bg-green-300 transition-colors">Créer un compte</button>
                 </form>
+                <div class="my-4 text-center">
+                    <p class="text-gray-500">Déjà un compte ?</p>
+                    <button id="show-login-btn" class="font-bold text-blue-500 hover:underline">Se connecter</button>
+                </div>
+            </div>
+
+            <div id="login-container" class="bg-white p-8 rounded-2xl shadow-lg text-center hidden">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">GéoLycée</h1>
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Connexion</h2>
+                <form id="login-form">
+                    <input id="login-name" type="text" placeholder="Votre nom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="username">
+                    <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
+                    <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold disabled:bg-blue-300 transition-colors">Se connecter</button>
+                </form>
+                <div class="my-4 text-center">
+                    <p class="text-gray-500">Pas encore de compte ?</p>
+                    <button id="show-signup-btn" class="font-bold text-green-500 hover:underline">Créer un compte</button>
+                </div>
             </div>
         </div>
     </div>
