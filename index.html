@@ -19,41 +19,13 @@
         <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
     </div>
 
-    <!-- Vue d'authentification (Connexion / Inscription) -->
-    <div id="auth-view" class="fixed inset-0 bg-gray-100 flex items-center justify-center p-4 z-[1500] hidden">
-        <div class="w-full max-w-md">
-            <!-- Conteneur d'inscription (visible par défaut) -->
-            <div id="signup-container" class="bg-white p-8 rounded-2xl shadow-lg text-center">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">GéoLycée</h1>
-                <h2 class="text-xl font-semibold mb-4 text-gray-700">Créer un compte</h2>
-                <div id="signup-status" class="mb-4 text-sm min-h-[20px]"></div>
-                <form id="signup-form">
-                    <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
-                    <input id="signup-lastname" type="text" placeholder="Nom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
-                    <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="new-password">
-                    <button id="signup-btn" type="submit" class="w-full bg-green-500 text-white p-3 rounded-lg font-bold disabled:bg-green-300 transition-colors">Créer un compte</button>
-                </form>
-                <div class="my-4 text-center">
-                    <p class="text-gray-500">Déjà un compte ?</p>
-                    <button id="show-login-btn" class="font-bold text-blue-500 hover:underline">Se connecter</button>
-                </div>
-            </div>
-
-            <!-- Conteneur de connexion (caché par défaut) -->
-            <div id="login-container" class="bg-white p-8 rounded-2xl shadow-lg text-center hidden">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">GéoLycée</h1>
-                <h2 class="text-xl font-semibold mb-4 text-gray-700">Connexion</h2>
-                <div id="login-status" class="mb-4 text-sm min-h-[20px]"></div>
-                <form id="login-form">
-                    <input id="login-name" type="text" placeholder="Votre nom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="username">
-                    <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
-                    <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold disabled:bg-blue-300 transition-colors">Se connecter</button>
-                </form>
-                <div class="my-4 text-center">
-                    <p class="text-gray-500">Pas encore de compte ?</p>
-                    <button id="show-signup-btn" class="font-bold text-green-500 hover:underline">Créer un compte</button>
-                </div>
-            </div>
+    <!-- Modal pour demander le prénom au premier lancement -->
+    <div id="name-input-modal" class="modal-backdrop hidden">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
+            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
+            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
+            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
         </div>
     </div>
     
@@ -161,9 +133,6 @@
                                 <span class="slider"></span>
                             </label>
                         </div>
-                    </div>
-                    <div class="mt-8">
-                        <button id="logout-btn" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold">Se déconnecter</button>
                     </div>
                  </div>
             </div>
