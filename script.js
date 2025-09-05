@@ -153,6 +153,14 @@ const handleSignUp = async (event) => {
     const prenom = ui.signupFirstnameInput.value.trim();
     const nom = ui.signupLastnameInput.value.trim().toLowerCase();
     const password = ui.signupPasswordInput.value;
+
+    if (!nom || !prenom || !password) {
+        showAuthStatus(ui.signupStatus, 'Veuillez remplir tous les champs.', 'error');
+        ui.signupBtn.disabled = false;
+        ui.signupBtn.textContent = 'Créer un compte';
+        return;
+    }
+
     const email = `${nom}@geolycee.app`;
     const fullName = `${prenom} ${nom.charAt(0).toUpperCase() + nom.slice(1)}`;
 
@@ -168,7 +176,7 @@ const handleSignUp = async (event) => {
         });
 
         if (error) {
-            showAuthStatus(ui.signupStatus, error.message, 'error');
+            showAuthStatus(ui.signupStatus, "Ce nom d'utilisateur existe déjà.", 'error');
         } else {
             showAuthStatus(ui.signupStatus, 'Création de compte réussie ! Redirection...', 'success');
             ui.signupForm.reset();
@@ -194,6 +202,14 @@ const handleLogin = async (event) => {
 
     const nom = ui.loginNameInput.value.trim().toLowerCase();
     const password = ui.loginPasswordInput.value;
+
+    if (!nom || !password) {
+        showAuthStatus(ui.loginStatus, 'Veuillez remplir tous les champs.', 'error');
+        ui.loginBtn.disabled = false;
+        ui.loginBtn.textContent = 'Se connecter';
+        return;
+    }
+
     const email = `${nom}@geolycee.app`;
 
     try {
@@ -233,7 +249,7 @@ const startLocationTracking = () => {
         (pos) => {
             ui.status.classList.add('hidden');
             updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-            updateUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+            updateUserMarker(pos.coords);
         },
         (err) => {
             showPermanentBanner("Erreur ou perte de la géolocalisation.");
@@ -260,14 +276,39 @@ const updateSupabaseLocation = async (data) => {
     }
 };
 
-const updateUserMarker = (lat, lng, accuracy) => {
+const updateUserMarker = (coords) => {
+    const { latitude, longitude, accuracy, heading, speed } = coords;
+    const lat = latitude;
+    const lng = longitude;
     const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
     const latLng = L.latLng(lat, lng);
+    
+    let userIconHtml;
+    if (speed && speed > 1 && heading !== null && !isNaN(heading)) {
+        userIconHtml = `
+            <div class="relative w-8 h-8 flex items-center justify-center" style="transform: rotate(${heading}deg);">
+                <svg class="w-8 h-8 text-blue-600 filter drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>`;
+    } else {
+        userIconHtml = `
+            <div class="relative w-6 h-6 flex items-center justify-center">
+                <div class="pulse-ring"></div>
+                <svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/>
+                    <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                </svg>
+            </div>`;
+    }
+
     const userIcon = L.divIcon({
         className: 'custom-user-icon',
-        html: `<div class="relative w-6 h-6 flex items-center justify-center"><div class="pulse-ring"></div><svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg></div>`,
-        iconSize: [24, 24], iconAnchor: [12, 12]
+        html: userIconHtml,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
     });
+
     if (!appState.userMarker) {
         appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
         appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
@@ -275,6 +316,7 @@ const updateUserMarker = (lat, lng, accuracy) => {
         if (amberieuBounds.contains(latLng)) appState.map.setView(latLng, 18);
     } else {
         appState.userMarker.setLatLng(latLng);
+        appState.userMarker.setIcon(userIcon);
         appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
         appState.userMarker.setTooltipContent(appState.userName);
     }
@@ -292,10 +334,14 @@ const listenToFriendLocations = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
             const friendData = payload.new;
             if (!friendData || friendData.user_id === appState.currentUser.id || !appState.friends[friendData.user_id]) return;
+            
             appState.friends[friendData.user_id] = { ...appState.friends[friendData.user_id], ...friendData };
             renderFriendList();
+            
             const friendId = friendData.user_id;
+            const friendName = appState.friends[friendId].full_name;
             const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
+
             if (!shouldDisplay) {
                 if (appState.friendMarkers[friendId]) {
                     appState.map.removeLayer(appState.friendMarkers[friendId]);
@@ -309,10 +355,10 @@ const listenToFriendLocations = () => {
                 iconSize: [32, 32], iconAnchor: [16, 32]
             });
             if (appState.friendMarkers[friendId]) {
-                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(appState.friends[friendId].full_name || 'Ami');
+                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendName || 'Ami');
             } else {
                 appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
-                    .addTo(appState.map).bindTooltip(appState.friends[friendId].full_name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
+                    .addTo(appState.map).bindTooltip(friendName || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
             }
         }).subscribe();
 };
@@ -368,7 +414,7 @@ const renderFriendList = () => {
     }
     friendIds.forEach(id => {
         const friend = appState.friends[id];
-        const status = friend.is_sharing ? getLocationStatus(friend.lat, friend.lng) : "Ne partage pas sa position";
+        const status = friend.is_sharing === false ? "A désactivé sa position" : getLocationStatus(friend.lat, friend.lng);
         const li = document.createElement('li');
         li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
         li.innerHTML = `
@@ -384,7 +430,7 @@ const renderFriendList = () => {
 
 const centerOnFriend = (friendId) => {
     const friend = appState.friends[friendId];
-    if (friend && friend.is_sharing && appState.friendMarkers[friendId]) {
+    if (friend && friend.is_sharing !== false && appState.friendMarkers[friendId]) {
         showView('map');
         appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
         showStatus(`Centrage sur ${friend.full_name}`, 'info');
