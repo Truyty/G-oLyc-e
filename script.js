@@ -142,11 +142,9 @@ const loadUserProfile = async () => {
     ui.appContainer.classList.remove('hidden');
     showView('map');
     
-    // CORRECTIF : On applique les limites de la carte une fois qu'elle est visible et a des dimensions.
     const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
     appState.map.setMaxBounds(mapBounds);
 
-    // On lance le reste des opérations après un court délai pour être sûr que tout est prêt.
     setTimeout(async () => {
         await fetchAndDisplayFriends();
         if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
