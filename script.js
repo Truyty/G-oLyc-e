@@ -1,169 +1,477 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GéoLycée</title>
-    
-    <!-- CSS Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    
-    <!-- Votre fichier CSS -->
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-gray-100 antialiased">
-    
-    <div id="loader" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-[2000]">
-        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
-    </div>
+const { createClient } = supabase;
+const SUPABASE_URL = 'https://umyomcjotcowdzlcxyyi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVteW9tY2pvdGNvd2R6bGN4eXlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNzkzMzcsImV4cCI6MjA3MjY1NTMzN30.wSxaf_OlY-sUeO9ANjceXApbT-LgwxHhzOBn_oEnldw';
 
-    <!-- Modal pour demander le prénom au premier lancement -->
-    <div id="name-input-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
-            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
-            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
-        </div>
-    </div>
-    
-    <div id="my-qr-code-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-xs shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Votre QR Code</h2>
-            <div id="qr-code-container" class="bg-gray-100 p-4 rounded-lg flex justify-center items-center"></div>
-            <p class="text-sm text-gray-500 mt-4">Montrez ce code à vos amis pour qu'ils vous ajoutent.</p>
-            <button id="close-qr-code-modal-btn" class="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1.5 hover:bg-gray-300">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-    </div>
+const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
+const lyceeCenter = [45.96239, 5.34721];
 
-    <div id="qr-scanner-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-4 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Scanner un ami</h2>
-            <div id="qr-scanner-container" class="w-full" style="max-width: 400px;"></div>
-             <button id="close-scanner-modal-btn" class="mt-4 bg-red-500 text-white px-6 py-2 rounded-lg font-bold">Annuler</button>
-        </div>
-    </div>
+const appState = {
+    map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
+    friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
+    html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: true
+};
 
-    <div id="paste-id-modal" class="modal-backdrop hidden">
-        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Ajouter par ID</h2>
-            <p class="text-gray-600 mb-6">Collez l'ID de votre ami ci-dessous.</p>
-            <input id="paste-id-input" type="text" placeholder="ID de l'ami..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
-            <button id="add-friend-from-id-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Ajouter</button>
-            <button id="close-paste-id-modal-btn" class="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1.5 hover:bg-gray-300">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-    </div>
+const ui = {};
 
-    <div id="app-container" class="relative w-full h-full flex flex-col hidden">
-        <header class="absolute top-0 inset-x-0 p-4 flex items-center justify-center z-[1000] pointer-events-none">
-            <div class="bg-white/80 backdrop-blur-md px-6 py-3 rounded-full shadow-lg">
-                <h1 class="text-xl font-bold text-gray-800 tracking-tight">GéoLycée</h1>
-            </div>
-        </header>
+document.addEventListener('DOMContentLoaded', async () => {
+    Object.assign(ui, {
+        loader: document.getElementById('loader'),
+        nameModal: document.getElementById('name-input-modal'),
+        nameInput: document.getElementById('name-input'),
+        saveNameBtn: document.getElementById('save-name-btn'),
+        appContainer: document.getElementById('app-container'),
+        views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
+        buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
+        status: document.getElementById('status'),
+        friendsList: document.getElementById('friends-list'),
+        shareLocationToggle: document.getElementById('share-location-toggle'),
+        showAttributionToggle: document.getElementById('show-attribution-toggle'),
+        disableScannerToggle: document.getElementById('disable-scanner-toggle'),
+        topBanner: document.getElementById('top-banner'),
+        myQrCodeBtn: document.getElementById('my-qr-code-btn'),
+        addFriendBtn: document.getElementById('add-friend-btn'),
+        myQrCodeModal: document.getElementById('my-qr-code-modal'),
+        qrCodeContainer: document.getElementById('qr-code-container'),
+        closeQrCodeModalBtn: document.getElementById('close-qr-code-modal-btn'),
+        qrScannerModal: document.getElementById('qr-scanner-modal'),
+        qrScannerContainer: document.getElementById('qr-scanner-container'),
+        closeScannerModalBtn: document.getElementById('close-scanner-modal-btn'),
+        pasteIdModal: document.getElementById('paste-id-modal'),
+        pasteIdInput: document.getElementById('paste-id-input'),
+        addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
+        closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
+    });
+
+    try {
+        initMap();
+        const geoResult = await requestGeolocationPermission();
+        appState.geolocationEnabled = geoResult.success;
+        if (!geoResult.success) {
+            showPermanentBanner(geoResult.error);
+        }
         
-        <div id="top-banner" class="absolute top-24 inset-x-0 mx-auto w-max bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000] hidden">
-            Message
-        </div>
+        await initSupabase();
+        setupEventListeners();
 
-        <main class="flex-grow w-full h-full relative overflow-hidden">
-            <div id="map-view" class="w-full h-full">
-                <div id="map"></div>
-                <div id="status" class="hidden"></div>
-            </div>
-            <div id="friends-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
-                <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Amis</h2>
-                    <div class="grid grid-cols-2 gap-4 mb-8">
-                        <button id="my-qr-code-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
-                             <svg class="w-8 h-8 mx-auto text-blue-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
-                            <span class="font-semibold text-gray-700">Mon QR Code</span>
-                        </button>
-                         <button id="add-friend-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition">
-                            <svg class="w-8 h-8 mx-auto text-purple-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6.364 1.636l-.707.707M20 12h-1M4 12H3m1.636 6.364l.707-.707M12 20v-1m6.364-1.636l-.707-.707M12 12h.01"></path></svg>
-                            <span class="font-semibold text-gray-700">Ajouter un ami</span>
-                        </button>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-gray-700 mb-3">Ma liste d'amis</h3>
-                        <ul id="friends-list" class="space-y-3"></ul>
-                    </div>
-                </div>
-            </div>
-            <div id="settings-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
-                 <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Paramètres</h2>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                         <div class="flex items-center justify-between">
-                             <div>
-                                 <h3 class="font-semibold text-gray-700">Partager ma position</h3>
-                                 <p class="text-sm text-gray-500">Permet à vos amis de voir votre position.</p>
-                             </div>
-                             <label class="switch">
-                                 <input type="checkbox" id="share-location-toggle" checked>
-                                 <span class="slider"></span>
-                             </label>
-                         </div>
-                     </div>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4">
-                         <div class="flex items-center justify-between">
-                             <div>
-                                 <h3 class="font-semibold text-gray-700">Noms des rues & Légende</h3>
-                                 <p class="text-sm text-gray-500">Affiche les détails et les crédits.</p>
-                             </div>
-                             <label class="switch">
-                                 <input type="checkbox" id="show-attribution-toggle">
-                                 <span class="slider"></span>
-                             </label>
-                         </div>
-                     </div>
-                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h3 class="font-semibold text-gray-700">Désactiver le scanner QR</h3>
-                                <p class="text-sm text-gray-500">Permet d'ajouter un ami en collant son ID.</p>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" id="disable-scanner-toggle" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                 </div>
-            </div>
-        </main>
-        
-        <nav class="bottom-nav">
-            <div class="nav-content">
-                <button id="friends-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"></path></svg></div>
-                    <span>Amis</span>
-                </button>
-                <button id="map-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"></path></svg></div>
-                    <span>Carte</span>
-                </button>
-                <button id="settings-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.72C8.63,5.96,8.1,6.29,7.6,6.67L5.21,5.71C4.99,5.62,4.74,5.69,4.62,5.91L2.7,9.23 c-0.11,0.2-0.06,0.47,0.12,0.61L4.85,11.4c-0.05,0.3-0.07,0.62-0.07,0.94c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.38,2.91 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17-0.48,0.41l0.38-2.91c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.01,0.59-0.22l1.92-3.32c0.12-0.2,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"></path></svg></div>
-                    <span>Paramètres</span>
-                </button>
-            </div>
-        </nav>
-    </div>
+    } catch (error) {
+        console.error("Fatal initialization error:", error);
+        if (ui.loader) {
+            ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
+        }
+    }
+});
 
-    <!-- JS Libraries -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+const requestGeolocationPermission = () => new Promise((resolve) => {
+    if (!("geolocation" in navigator)) {
+        resolve({ success: false, error: "Géolocalisation non supportée." });
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ success: true, position: pos }),
+        (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur inconnue." }),
+        highAccuracyOptions
+    );
+});
+
+const initSupabase = async () => {
+    appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session } } = await appState.supabase.auth.getSession();
     
-    <!-- Votre fichier JavaScript -->
-    <script src="script.js" defer></script>
-</body>
-</html>
+    if (session) {
+        appState.currentUser = session.user;
+        await loadApp();
+    } else {
+        const { data, error } = await appState.supabase.auth.signInAnonymously();
+        if (error) {
+            throw new Error("Échec de l'authentification anonyme.");
+        }
+        appState.currentUser = data.user;
+        await loadApp();
+    }
+};
+
+const initMap = () => {
+    appState.map = L.map('map', { 
+        center: lyceeCenter, 
+        zoom: 16, 
+        minZoom: 16,
+        maxZoom: 19,
+        zoomControl: false, 
+        attributionControl: true,
+    });
+    
+    appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
+    });
+    appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap', maxNativeZoom: 19
+    });
+
+    appState.mapLayers.noLabels.addTo(appState.map);
+    appState.map.attributionControl.setPrefix(false);
+};
+
+const loadApp = async () => {
+    const { data } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
+
+    if (data && data.name) {
+        appState.userName = data.name;
+        appState.isSharing = data.is_sharing;
+        ui.shareLocationToggle.checked = appState.isSharing;
+        
+        ui.loader.classList.add('hidden');
+        ui.appContainer.classList.remove('hidden');
+        showView('map');
+
+        // CORRECTIF : Attendre que la carte soit prête avant de définir les limites.
+        appState.map.whenReady(() => {
+            const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+            appState.map.setMaxBounds(mapBounds);
+        });
+
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    } else {
+        ui.loader.classList.add('hidden');
+        ui.nameModal.style.display = 'flex';
+    }
+};
+
+const saveUserName = async () => {
+    const name = ui.nameInput.value.trim();
+    if (name) {
+        appState.userName = name;
+        await updateSupabaseLocation({ name: appState.userName, is_sharing: true });
+        ui.nameModal.style.display = 'none';
+        
+        ui.appContainer.classList.remove('hidden');
+        showView('map');
+        
+        // CORRECTIF : Attendre que la carte soit prête avant de définir les limites.
+        appState.map.whenReady(() => {
+            const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+            appState.map.setMaxBounds(mapBounds);
+        });
+
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    } else {
+        showStatus("Veuillez entrer un prénom.", 'warning');
+    }
+};
+
+const startLocationTracking = () => {
+    if (appState.watchId) return;
+    showStatus("Recherche de votre position...", 'info');
+    appState.watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+            ui.status.classList.add('hidden');
+            updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            updateUserMarker(pos.coords);
+        },
+        (err) => {
+            showPermanentBanner("Erreur ou perte de la géolocalisation.");
+            stopLocationTracking();
+        }, 
+        highAccuracyOptions
+    );
+};
+
+const stopLocationTracking = async () => {
+    if (appState.watchId) {
+        navigator.geolocation.clearWatch(appState.watchId);
+        appState.watchId = null;
+        await updateSupabaseLocation({ is_sharing: false });
+        showStatus("Partage de position arrêté.", 'info');
+    }
+};
+
+const updateSupabaseLocation = async (data) => {
+    try {
+        await appState.supabase.from('locations').upsert({ ...data, user_id: appState.currentUser.id, timestamp: new Date().toISOString() }, { onConflict: 'user_id' });
+    } catch (e) {
+        showStatus("Erreur de synchronisation.", 'error');
+    }
+};
+
+const updateUserMarker = (coords) => {
+    const { latitude, longitude, accuracy, heading, speed } = coords;
+    const latLng = L.latLng(latitude, longitude);
+    
+    let userIconHtml;
+    if (speed && speed > 1 && heading !== null && !isNaN(heading)) {
+        userIconHtml = `
+            <div class="relative w-8 h-8 flex items-center justify-center" style="transform: rotate(${heading}deg);">
+                <svg class="w-8 h-8 text-blue-600 filter drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>`;
+    } else {
+        userIconHtml = `
+            <div class="relative w-6 h-6 flex items-center justify-center">
+                <div class="pulse-ring"></div>
+                <svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/>
+                    <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                </svg>
+            </div>`;
+    }
+
+    const userIcon = L.divIcon({
+        className: 'custom-user-icon',
+        html: userIconHtml,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+
+    if (!appState.userMarker) {
+        appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
+        appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
+        appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
+        
+        const distanceToLycee = latLng.distanceTo(lyceeCenter);
+        if (distanceToLycee <= 1000) {
+            appState.map.setView(latLng, 18);
+        }
+    } else {
+        appState.userMarker.setLatLng(latLng);
+        appState.userMarker.setIcon(userIcon);
+        appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
+        appState.userMarker.setTooltipContent(appState.userName);
+    }
+};
+
+const listenToFriendLocations = () => {
+    appState.supabase.channel('public:locations')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
+            const friendData = payload.new;
+            if (!friendData || friendData.user_id === appState.currentUser.id || !appState.friends[friendData.user_id]) return;
+            
+            appState.friends[friendData.user_id] = { ...appState.friends[friendData.user_id], ...friendData };
+            renderFriendList();
+            
+            const friendId = friendData.user_id;
+            const friendName = appState.friends[friendId].name;
+            const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
+
+            if (!shouldDisplay) {
+                if (appState.friendMarkers[friendId]) {
+                    appState.map.removeLayer(appState.friendMarkers[friendId]);
+                    delete appState.friendMarkers[friendId];
+                }
+                return;
+            }
+            const friendIcon = L.divIcon({
+                className: 'custom-friend-icon',
+                html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
+                iconSize: [32, 32], iconAnchor: [16, 32]
+            });
+            if (appState.friendMarkers[friendId]) {
+                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendName || 'Ami');
+            } else {
+                appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
+                    .addTo(appState.map).bindTooltip(friendName || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
+            }
+        }).subscribe();
+};
+
+const addFriend = async (friendId) => {
+    if (!friendId) return showStatus("ID invalide.", 'warning');
+    if (friendId === appState.currentUser.id) return showStatus("Vous ne pouvez pas vous ajouter.", 'warning');
+    const { data: friendExists } = await appState.supabase.from('locations').select('name').eq('user_id', friendId).single();
+    if (!friendExists) return showStatus("Utilisateur introuvable.", 'error');
+    const { error } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
+    if (error) {
+        if (error.code === '23505') showStatus(`${friendExists.name} est déjà votre ami.`, 'warning');
+        else showStatus("Erreur lors de l'ajout.", 'error');
+    } else {
+        showStatus(`${friendExists.name} a été ajouté(e) !`, 'success');
+        await fetchAndDisplayFriends();
+    }
+};
+
+const fetchAndDisplayFriends = async () => {
+    const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
+    const friendIds = relations.map(r => r.friend_id);
+    if (friendIds.length === 0) return renderFriendList();
+    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, name, lat, lng, is_sharing').in('user_id', friendIds);
+    
+    appState.friends = {};
+    if (friendsData) {
+        friendsData.forEach(friend => {
+            appState.friends[friend.user_id] = friend;
+        });
+    }
+    renderFriendList();
+};
+
+const getLocationStatus = (lat, lng) => {
+    const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
+    const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
+    const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
+    if (!lat || !lng) return "Position inconnue";
+    const point = L.latLng(lat, lng);
+    if (lyceeZone.getBounds().contains(point)) return "Au lycée";
+    if (shoppingZone.getBounds().contains(point)) return "Zone commerciale";
+    if (amberieuBounds.contains(point)) return "À Ambérieu";
+    return "En dehors d'Ambérieu";
+};
+
+const renderFriendList = () => {
+    ui.friendsList.innerHTML = '';
+    const friendIds = Object.keys(appState.friends);
+    if (friendIds.length === 0) {
+        ui.friendsList.innerHTML = `<li class="text-center text-gray-500 py-4">Ajoutez votre premier ami.</li>`;
+        return;
+    }
+    friendIds.forEach(id => {
+        const friend = appState.friends[id];
+        const status = friend.is_sharing === false ? "A désactivé sa position" : getLocationStatus(friend.lat, friend.lng);
+        const li = document.createElement('li');
+        li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
+        li.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="font-medium text-gray-800">${friend.name}</span>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">${status}</p>`;
+        li.addEventListener('click', () => centerOnFriend(id));
+        ui.friendsList.appendChild(li);
+    });
+};
+
+const centerOnFriend = (friendId) => {
+    const friend = appState.friends[friendId];
+    if (friend && friend.is_sharing !== false && appState.friendMarkers[friendId]) {
+        showView('map');
+        appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
+        showStatus(`Centrage sur ${friend.name}`, 'info');
+    } else {
+        showStatus(`${friend.name} ne partage pas sa position.`, 'warning');
+    }
+};
+
+const showMyQrCode = () => {
+    ui.qrCodeContainer.innerHTML = '';
+    const qr = qrcode(0, 'L');
+    qr.addData(appState.currentUser.id);
+    qr.make();
+    ui.qrCodeContainer.innerHTML = qr.createImgTag(6, 8);
+    ui.myQrCodeModal.classList.remove('hidden');
+};
+
+const startQrScanner = async () => {
+    if (typeof Html5Qrcode === 'undefined') {
+        showStatus("Librairie du scanner non chargée.", "error");
+        return;
+    }
+    ui.qrScannerModal.classList.remove('hidden');
+    if (!appState.html5QrCode) {
+         appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
+    }
+    try {
+        await appState.html5QrCode.start(
+            { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => { stopQrScanner(); addFriend(decodedText); },
+            () => {}
+        );
+    } catch (err) {
+        console.error("Erreur du scanner QR:", err);
+        showStatus("Impossible de démarrer la caméra.", "error");
+        stopQrScanner();
+    }
+};
+
+const stopQrScanner = () => {
+    if (appState.html5QrCode && appState.html5QrCode.isScanning) {
+        appState.html5QrCode.stop()
+            .catch(err => console.error("Scanner non arrêté correctement.", err))
+            .finally(() => ui.qrScannerModal.classList.add('hidden'));
+    } else {
+        ui.qrScannerModal.classList.add('hidden');
+    }
+};
+
+const setupEventListeners = () => {
+    ui.saveNameBtn.addEventListener('click', saveUserName);
+
+    ui.buttons.friends.addEventListener('click', () => showView('friends'));
+    ui.buttons.settings.addEventListener('click', () => showView('settings'));
+    ui.buttons.map.addEventListener('click', () => {
+        if (ui.views.map.classList.contains('hidden')) showView('map');
+        else appState.map.setView(lyceeCenter, 18, { animate: true, pan: { duration: 1 } });
+    });
+    ui.shareLocationToggle.addEventListener('change', (e) => {
+        if(e.target.checked) {
+            if (appState.geolocationEnabled) startLocationTracking();
+            else showPermanentBanner("Activez la géolocalisation pour partager.");
+        } else {
+            stopLocationTracking();
+        }
+    });
+    ui.showAttributionToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            appState.map.removeLayer(appState.mapLayers.noLabels);
+            appState.map.addLayer(appState.mapLayers.withLabels);
+        } else {
+            appState.map.removeLayer(appState.mapLayers.withLabels);
+            appState.map.addLayer(appState.mapLayers.noLabels);
+        }
+    });
+    ui.disableScannerToggle.addEventListener('change', (e) => {
+        appState.isScannerDisabled = e.target.checked;
+    });
+    ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
+    ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
+    ui.addFriendBtn.addEventListener('click', () => {
+        if (appState.isScannerDisabled) {
+            ui.pasteIdModal.classList.remove('hidden');
+        } else {
+            startQrScanner();
+        }
+    });
+    ui.closePasteIdModalBtn.addEventListener('click', () => {
+        ui.pasteIdModal.classList.add('hidden');
+    });
+    ui.addFriendFromIdBtn.addEventListener('click', () => {
+        const friendId = ui.pasteIdInput.value.trim();
+        if (friendId) {
+            addFriend(friendId);
+            ui.pasteIdInput.value = '';
+            ui.pasteIdModal.classList.add('hidden');
+        } else {
+            showStatus("Veuillez entrer un ID.", 'warning');
+        }
+    });
+    ui.closeScannerModalBtn.addEventListener('click', stopQrScanner);
+};
+
+const showView = (viewName) => {
+    Object.values(ui.views).forEach(v => v.classList.add('hidden'));
+    ui.views[viewName].classList.remove('hidden');
+    document.querySelectorAll('.menu-btn-container').forEach(el => el.classList.remove('active-menu'));
+    ui.buttons[viewName].classList.add('active-menu');
+    if (viewName === 'map') appState.map.invalidateSize();
+    if (viewName === 'friends') fetchAndDisplayFriends();
+};
+
+const showStatus = (message, type = 'info') => {
+    const colors = { info: 'bg-blue-100 text-blue-800', success: 'bg-green-100 text-green-800', warning: 'bg-yellow-100 text-yellow-800', error: 'bg-red-100 text-red-800' };
+    ui.status.textContent = message;
+    ui.status.className = `absolute top-4 left-1/2 -translate-x-1/2 text-center text-sm font-medium p-3 rounded-xl shadow-lg transition-all duration-300 z-[1001] ${colors[type]}`;
+    ui.status.classList.remove('hidden');
+    setTimeout(() => {
+        if (ui.status) {
+            ui.status.classList.add('hidden');
+        }
+    }, 3000);
+};
+
+const showPermanentBanner = (message) => {
+    ui.topBanner.textContent = message;
+    ui.topBanner.className = 'absolute top-24 inset-x-0 mx-auto w-max bg-red-100 text-red-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000]';
+    ui.topBanner.classList.remove('hidden');
+};
 
