@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader: document.getElementById('loader'),
         authView: document.getElementById('auth-view'),
         appContainer: document.getElementById('app-container'),
+        loginContainer: document.getElementById('login-container'),
+        signupContainer: document.getElementById('signup-container'),
         loginForm: document.getElementById('login-form'),
         signupForm: document.getElementById('signup-form'),
         loginNameInput: document.getElementById('login-name'),
@@ -27,6 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         signupPasswordInput: document.getElementById('signup-password'),
         loginBtn: document.getElementById('login-btn'),
         signupBtn: document.getElementById('signup-btn'),
+        showLoginBtn: document.getElementById('show-login-btn'),
+        showSignupBtn: document.getElementById('show-signup-btn'),
         views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
         buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
         status: document.getElementById('status'),
@@ -163,8 +167,11 @@ const handleSignUp = async (event) => {
         if (error) {
             showStatus(error.message, 'error');
         } else {
-            showStatus('Compte créé avec succès ! Vous pouvez maintenant vous connecter.', 'success');
+            showStatus('Compte créé avec succès ! Veuillez vous connecter.', 'success');
             ui.signupForm.reset();
+            // Basculer vers la vue de connexion
+            ui.signupContainer.classList.add('hidden');
+            ui.loginContainer.classList.remove('hidden');
         }
     } catch(e) {
         showStatus("Une erreur est survenue.", "error");
@@ -192,6 +199,7 @@ const handleLogin = async (event) => {
         if (error) {
             showStatus("Nom ou mot de passe incorrect.", 'error');
         } else {
+            showStatus("Vous êtes connecté !", "success");
             appState.currentUser = data.user;
             await loadUserProfile();
         }
@@ -420,6 +428,14 @@ const setupEventListeners = () => {
     ui.loginForm.addEventListener('submit', handleLogin);
     ui.signupForm.addEventListener('submit', handleSignUp);
     ui.logoutBtn.addEventListener('click', handleLogout);
+    ui.showLoginBtn.addEventListener('click', () => {
+        ui.signupContainer.classList.add('hidden');
+        ui.loginContainer.classList.remove('hidden');
+    });
+    ui.showSignupBtn.addEventListener('click', () => {
+        ui.loginContainer.classList.add('hidden');
+        ui.signupContainer.classList.remove('hidden');
+    });
 
     ui.buttons.friends.addEventListener('click', () => showView('friends'));
     ui.buttons.settings.addEventListener('click', () => showView('settings'));
@@ -486,7 +502,11 @@ const showStatus = (message, type = 'info') => {
     ui.status.textContent = message;
     ui.status.className = `absolute top-4 left-1/2 -translate-x-1/2 text-center text-sm font-medium p-3 rounded-xl shadow-lg transition-all duration-300 z-[1001] ${colors[type]}`;
     ui.status.classList.remove('hidden');
-    setTimeout(() => ui.status.classList.add('hidden'), 3000);
+    setTimeout(() => {
+        if (ui.status) {
+            ui.status.classList.add('hidden');
+        }
+    }, 3000);
 };
 
 const showPermanentBanner = (message) => {
