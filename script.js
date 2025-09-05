@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         signupFirstnameInput: document.getElementById('signup-firstname'),
         signupLastnameInput: document.getElementById('signup-lastname'),
         signupPasswordInput: document.getElementById('signup-password'),
+        loginBtn: document.getElementById('login-btn'),
+        signupBtn: document.getElementById('signup-btn'),
         views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
         buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
         status: document.getElementById('status'),
@@ -112,70 +114,92 @@ const initMap = () => {
 };
 
 const loadUserProfile = async () => {
-    const { data: profile } = await appState.supabase.from('profiles').select('full_name').eq('id', appState.currentUser.id).single();
-    if (profile && profile.full_name) {
-        appState.userName = profile.full_name;
-        
-        const { data: location } = await appState.supabase.from('locations').select('is_sharing').eq('user_id', appState.currentUser.id).single();
-        appState.isSharing = location ? location.is_sharing : true;
+    const { data: profile, error } = await appState.supabase.from('profiles').select('full_name').eq('id', appState.currentUser.id).single();
 
-        ui.shareLocationToggle.checked = appState.isSharing;
-        await fetchAndDisplayFriends();
-        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-        listenToFriendLocations();
-
-        ui.loader.classList.add('hidden');
-        ui.authView.classList.add('hidden');
-        ui.appContainer.classList.remove('hidden');
-        showView('map');
-    } else {
-        showStatus("Profil introuvable.", 'error');
+    if (error || !profile) {
+        showStatus("Impossible de charger le profil.", 'error');
         handleLogout();
+        return;
     }
+    
+    appState.userName = profile.full_name;
+    const { data: location } = await appState.supabase.from('locations').select('is_sharing').eq('user_id', appState.currentUser.id).single();
+    appState.isSharing = location ? location.is_sharing : true;
+
+    ui.shareLocationToggle.checked = appState.isSharing;
+    ui.disableScannerToggle.checked = appState.isScannerDisabled;
+    await fetchAndDisplayFriends();
+    if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+    listenToFriendLocations();
+
+    ui.loader.classList.add('hidden');
+    ui.authView.classList.add('hidden');
+    ui.appContainer.classList.remove('hidden');
+    showView('map');
 };
 
 const handleSignUp = async (event) => {
     event.preventDefault();
+    ui.signupBtn.disabled = true;
+    ui.signupBtn.textContent = 'Création...';
+    
     const prenom = ui.signupFirstnameInput.value.trim();
     const nom = ui.signupLastnameInput.value.trim().toLowerCase();
     const password = ui.signupPasswordInput.value;
     const email = `${nom}@geolycee.app`;
     const fullName = `${prenom} ${nom.charAt(0).toUpperCase() + nom.slice(1)}`;
 
-    const { data, error } = await appState.supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: {
-            data: {
-                full_name: fullName
+    try {
+        const { data, error } = await appState.supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    full_name: fullName
+                }
             }
-        }
-    });
+        });
 
-    if (error) {
-        showStatus(error.message, 'error');
-    } else {
-        showStatus('Inscription réussie ! Vous pouvez vous connecter.', 'success');
-        ui.signupForm.reset();
+        if (error) {
+            showStatus(error.message, 'error');
+        } else {
+            showStatus('Compte créé avec succès ! Vous pouvez maintenant vous connecter.', 'success');
+            ui.signupForm.reset();
+        }
+    } catch(e) {
+        showStatus("Une erreur est survenue.", "error");
+    } finally {
+        ui.signupBtn.disabled = false;
+        ui.signupBtn.textContent = 'Créer un compte';
     }
 };
 
 const handleLogin = async (event) => {
     event.preventDefault();
+    ui.loginBtn.disabled = true;
+    ui.loginBtn.textContent = 'Connexion...';
+
     const nom = ui.loginNameInput.value.trim().toLowerCase();
     const password = ui.loginPasswordInput.value;
     const email = `${nom}@geolycee.app`;
 
-    const { data, error } = await appState.supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
+    try {
+        const { data, error } = await appState.supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
 
-    if (error) {
-        showStatus("Nom ou mot de passe incorrect.", 'error');
-    } else {
-        appState.currentUser = data.user;
-        await loadUserProfile();
+        if (error) {
+            showStatus("Nom ou mot de passe incorrect.", 'error');
+        } else {
+            appState.currentUser = data.user;
+            await loadUserProfile();
+        }
+    } catch (e) {
+        showStatus("Une erreur est survenue.", "error");
+    } finally {
+        ui.loginBtn.disabled = false;
+        ui.loginBtn.textContent = 'Se connecter';
     }
 };
 
@@ -267,10 +291,10 @@ const listenToFriendLocations = () => {
                 iconSize: [32, 32], iconAnchor: [16, 32]
             });
             if (appState.friendMarkers[friendId]) {
-                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendData.full_name || 'Ami');
+                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(appState.friends[friendId].full_name || 'Ami');
             } else {
                 appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
-                    .addTo(appState.map).bindTooltip(friendData.full_name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
+                    .addTo(appState.map).bindTooltip(appState.friends[friendId].full_name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
             }
         }).subscribe();
 };
