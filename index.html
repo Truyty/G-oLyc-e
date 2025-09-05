@@ -48,7 +48,6 @@
         .menu-icon { padding: 0.75rem; border-radius: 9999px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .modal-backdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 1rem; }
         #qr-scanner-container { overflow: hidden; border-radius: 1rem; }
-        .auth-form a { color: #3B82F6; font-weight: 600; cursor: pointer; }
     </style>
 </head>
 <body class="bg-gray-100 antialiased">
@@ -58,27 +57,12 @@
         <p class="mt-4 text-gray-600">Chargement de GéoLycée...</p>
     </div>
 
-    <!-- Modals -->
-    <div id="auth-container" class="fixed inset-0 bg-gray-100 z-[1900] flex items-center justify-center p-4">
-        <!-- Login Form -->
-        <div id="login-modal" class="auth-form bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-gray-800 text-center mb-2">Connexion</h2>
-            <p class="text-center text-gray-500 mb-6">Heureux de vous revoir !</p>
-            <input id="login-email" type="email" placeholder="Adresse e-mail" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <input id="login-password" type="password" placeholder="Mot de passe" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <button id="login-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Se connecter</button>
-            <p class="text-center text-sm text-gray-600 mt-6">Pas de compte ? <a id="show-register">Inscrivez-vous</a></p>
-        </div>
-        <!-- Register Form -->
-        <div id="register-modal" class="auth-form bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm hidden">
-            <h2 class="text-2xl font-bold text-gray-800 text-center mb-2">Créer un compte</h2>
-            <p class="text-center text-gray-500 mb-6">Rejoignez GéoLycée dès maintenant.</p>
-            <input id="register-firstname" type="text" placeholder="Prénom" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <input id="register-lastname" type="text" placeholder="Nom" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <input id="register-email" type="email" placeholder="Adresse e-mail" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <input id="register-password" type="password" placeholder="Mot de passe" class="w-full p-3 mb-4 border border-gray-300 rounded-lg">
-            <button id="register-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">S'inscrire</button>
-            <p class="text-center text-sm text-gray-600 mt-6">Déjà un compte ? <a id="show-login">Connectez-vous</a></p>
+    <div id="name-input-modal" class="modal-backdrop hidden">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Bienvenue sur GéoLycée</h2>
+            <p class="text-gray-600 mb-6">Entrez votre prénom pour apparaître sur la carte.</p>
+            <input id="name-input" type="text" placeholder="Votre prénom..." class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-center">
+            <button id="save-name-btn" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg">Commencer le partage</button>
         </div>
     </div>
     
@@ -153,7 +137,6 @@
             <div id="settings-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
                  <div class="max-w-md mx-auto">
                     <h2 class="text-3xl font-bold text-gray-800 mb-6">Paramètres</h2>
-                     <p id="welcome-message" class="text-center text-gray-600 mb-6"></p>
                      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                          <div class="flex items-center justify-between">
                              <div>
@@ -190,7 +173,6 @@
                             </label>
                         </div>
                     </div>
-                    <button id="logout-btn" class="w-full mt-8 bg-red-500 text-white p-3 rounded-lg font-bold hover:bg-red-600">Se déconnecter</button>
                  </div>
             </div>
         </main>
@@ -202,7 +184,7 @@
                     <span>Amis</span>
                 </button>
                 <button id="map-btn-container" class="menu-btn-container">
-                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg></div>
+                    <div class="menu-icon"><svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg></div>
                     <span>Carte</span>
                 </button>
                 <button id="settings-btn-container" class="menu-btn-container">
@@ -222,7 +204,8 @@
         
         const appState = {
             map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
-            friendMarkers: {}, friends: {}, userData: {}, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: false, watchId: null
+            friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
+            html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: false
         };
 
         const ui = {};
@@ -231,19 +214,9 @@
             Object.assign(ui, {
                 loader: document.getElementById('loader'),
                 appContainer: document.getElementById('app-container'),
-                authContainer: document.getElementById('auth-container'),
-                loginModal: document.getElementById('login-modal'),
-                registerModal: document.getElementById('register-modal'),
-                loginEmail: document.getElementById('login-email'),
-                loginPassword: document.getElementById('login-password'),
-                loginBtn: document.getElementById('login-btn'),
-                showRegisterBtn: document.getElementById('show-register'),
-                registerFirstname: document.getElementById('register-firstname'),
-                registerLastname: document.getElementById('register-lastname'),
-                registerEmail: document.getElementById('register-email'),
-                registerPassword: document.getElementById('register-password'),
-                registerBtn: document.getElementById('register-btn'),
-                showLoginBtn: document.getElementById('show-login'),
+                nameModal: document.getElementById('name-input-modal'),
+                nameInput: document.getElementById('name-input'),
+                saveNameBtn: document.getElementById('save-name-btn'),
                 views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
                 buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
                 status: document.getElementById('status'),
@@ -264,450 +237,43 @@
                 pasteIdInput: document.getElementById('paste-id-input'),
                 addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
                 closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
-                logoutBtn: document.getElementById('logout-btn'),
-                welcomeMessage: document.getElementById('welcome-message')
             });
 
-            initMap();
-            await initSupabase();
-        });
-        
-        async function initSupabase() {
-            appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            const { data: { session } } = await appState.supabase.auth.getSession();
-
-            if (session) {
-                appState.currentUser = session.user;
-                await startApplication();
-            } else {
-                ui.loader.classList.add('hidden');
-                ui.authContainer.classList.remove('hidden');
-                setupAuthEventListeners();
-            }
-        }
-
-        async function startApplication() {
-            ui.authContainer.classList.add('hidden');
-            ui.loader.classList.remove('hidden');
-            
             try {
+                initMap();
                 const geoResult = await requestGeolocationPermission();
                 appState.geolocationEnabled = geoResult.success;
                 if (!geoResult.success) {
                     showPermanentBanner(geoResult.error);
                 }
                 
-                await checkUserSession();
-                setupAppEventListeners();
+                await initSupabase();
+                setupEventListeners();
+
             } catch (error) {
-                 console.error("Fatal initialization error:", error);
+                console.error("Fatal initialization error:", error);
                 if (ui.loader) {
                     ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
                 }
             }
-        }
+        });
 
-        function requestGeolocationPermission() {
-            return new Promise((resolve) => {
-                if (!("geolocation" in navigator)) return resolve({ success: false, error: "Géolocalisation non supportée." });
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve({ success: true, position: pos }),
-                    (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur inconnue." }),
-                    highAccuracyOptions
-                );
-            });
-        }
-        
-        function initMap() {
-            appState.map = L.map('map', { center: lyceeCenter, zoom: 18, zoomControl: false, attributionControl: true });
-            appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' });
-            appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
-            appState.mapLayers.noLabels.addTo(appState.map);
-            appState.map.attributionControl.setPrefix(false);
-        }
-        
-        async function checkUserSession() {
-            const { data, error } = await appState.supabase.from('locations').select('first_name, last_name, is_sharing').eq('user_id', appState.currentUser.id).single();
-            if (error || !data) {
-                console.error("User profile not found, logging out.", error);
-                await handleLogout();
+        const requestGeolocationPermission = () => new Promise((resolve) => {
+            if (!("geolocation" in navigator)) {
+                resolve({ success: false, error: "Géolocalisation non supportée." });
                 return;
             }
-            appState.userData = data;
-            ui.shareLocationToggle.checked = data.is_sharing !== false;
-            ui.welcomeMessage.textContent = `Connecté en tant que ${data.first_name} ${data.last_name}`;
-            
-            await fetchAndDisplayFriends();
-            if (data.is_sharing && appState.geolocationEnabled) startLocationTracking();
-            listenToFriendLocations();
-
-            ui.loader.classList.add('hidden');
-            ui.appContainer.classList.remove('hidden');
-            showView('map');
-        }
-
-        function startLocationTracking() {
-            if (appState.watchId) return;
-            showStatus("Recherche de votre position...", 'info');
-            appState.watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    ui.status.classList.add('hidden');
-                    updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                    updateUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-                },
-                (err) => {
-                    showPermanentBanner("Erreur ou perte de la géolocalisation.");
-                    stopLocationTracking();
-                }, 
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ success: true, position: pos }),
+                (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur inconnue." }),
                 highAccuracyOptions
             );
-        }
+        });
 
-        async function stopLocationTracking() {
-            if (appState.watchId) {
-                navigator.geolocation.clearWatch(appState.watchId);
-                appState.watchId = null;
-                await updateSupabaseLocation({ is_sharing: false });
-                showStatus("Partage de position arrêté.", 'info');
-            }
-        }
-
-        async function updateSupabaseLocation(data) {
-            try {
-                await appState.supabase.from('locations').upsert({ ...data, user_id: appState.currentUser.id, timestamp: new Date().toISOString() }, { onConflict: 'user_id' });
-            } catch (e) {
-                showStatus("Erreur de synchronisation.", 'error');
-            }
-        }
-
-        function generateDisplayNames(currentUserData, friendsData) {
-            const allUsers = [currentUserData, ...Object.values(friendsData)];
-            const firstNameCounts = allUsers.reduce((acc, user) => {
-                if (user.first_name) {
-                    acc[user.first_name] = (acc[user.first_name] || 0) + 1;
-                }
-                return acc;
-            }, {});
-
-            const displayNames = {};
-            allUsers.forEach(user => {
-                if (user.user_id && user.first_name) {
-                    if (firstNameCounts[user.first_name] > 1 && user.last_name) {
-                        displayNames[user.user_id] = `${user.first_name} ${user.last_name.charAt(0)}.`;
-                    } else {
-                        displayNames[user.user_id] = user.first_name;
-                    }
-                }
-            });
-            return displayNames;
-        }
-
-        function updateUserMarker(lat, lng, accuracy) {
-            const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
-            const latLng = L.latLng(lat, lng);
-            const userIcon = L.divIcon({
-                className: 'custom-user-icon',
-                html: `<div class="relative w-6 h-6 flex items-center justify-center"><div class="pulse-ring"></div><svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg></div>`,
-                iconSize: [24, 24], iconAnchor: [12, 12]
-            });
-
-            const displayNames = generateDisplayNames({ ...appState.userData, user_id: appState.currentUser.id }, appState.friends);
-            const userDisplayName = displayNames[appState.currentUser.id] || appState.userData.first_name;
-
-            if (!appState.userMarker) {
-                appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
-                appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
-                appState.userMarker.bindTooltip(userDisplayName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-                if (amberieuBounds.contains(latLng)) appState.map.setView(latLng, 18);
-            } else {
-                appState.userMarker.setLatLng(latLng);
-                appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
-                appState.userMarker.setTooltipContent(userDisplayName);
-            }
-            if (!amberieuBounds.contains(latLng)) {
-                 showPermanentBanner("Vous êtes en dehors de la zone d'Ambérieu.");
-            } else {
-                 if(ui.topBanner.textContent.includes("dehors de la zone")) {
-                    ui.topBanner.classList.add('hidden');
-                 }
-            }
-        }
-
-        function listenToFriendLocations() {
-            appState.supabase.channel('public:locations')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
-                    const friendData = payload.new;
-                    if (!friendData || friendData.user_id === appState.currentUser.id || !appState.friends[friendData.user_id]) return;
-                    
-                    appState.friends[friendData.user_id] = { ...appState.friends[friendData.user_id], ...friendData };
-                    renderFriendList();
-
-                    const displayNames = generateDisplayNames({ ...appState.userData, user_id: appState.currentUser.id }, appState.friends);
-
-                    const friendId = friendData.user_id;
-                    const friendDisplayName = displayNames[friendId] || friendData.first_name;
-                    const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
-
-                    if (!shouldDisplay) {
-                        if (appState.friendMarkers[friendId]) {
-                            appState.map.removeLayer(appState.friendMarkers[friendId]);
-                            delete appState.friendMarkers[friendId];
-                        }
-                        return;
-                    }
-                    const friendIcon = L.divIcon({
-                        className: 'custom-friend-icon',
-                        html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
-                        iconSize: [32, 32], iconAnchor: [16, 32]
-                    });
-                    if (appState.friendMarkers[friendId]) {
-                        appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendDisplayName);
-                    } else {
-                        appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
-                            .addTo(appState.map).bindTooltip(friendDisplayName, { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
-                    }
-                }).subscribe();
-        }
-
-        async function addFriend(friendId) {
-            if (!friendId) return showStatus("ID invalide.", 'warning');
-            if (friendId === appState.currentUser.id) return showStatus("Vous ne pouvez pas vous ajouter.", 'warning');
-            const { data: friendExists } = await appState.supabase.from('locations').select('first_name').eq('user_id', friendId).single();
-            if (!friendExists) return showStatus("Utilisateur introuvable.", 'error');
-            const { error } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
-            if (error) {
-                if (error.code === '23505') showStatus(`${friendExists.first_name} est déjà votre ami.`, 'warning');
-                else showStatus("Erreur lors de l'ajout.", 'error');
-            } else {
-                showStatus(`${friendExists.first_name} a été ajouté(e) !`, 'success');
-                await fetchAndDisplayFriends();
-            }
-        }
-
-        async function fetchAndDisplayFriends() {
-            const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
-            const friendIds = relations.map(r => r.friend_id);
-            if (friendIds.length === 0) return renderFriendList();
-            const { data: friendsData } = await appState.supabase.from('locations').select('user_id, first_name, last_name, lat, lng, is_sharing').in('user_id', friendIds);
-            appState.friends = {};
-            friendsData.forEach(friend => { appState.friends[friend.user_id] = friend; });
-            renderFriendList();
-        }
-        
-        function getLocationStatus(lat, lng) {
-            const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
-            const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
-            const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
-            if (!lat || !lng) return "Position inconnue";
-            const point = L.latLng(lat, lng);
-            if (lyceeZone.getBounds().contains(point)) return "Au lycée";
-            if (shoppingZone.getBounds().contains(point)) return "Zone commerciale";
-            if (amberieuBounds.contains(point)) return "À Ambérieu";
-            return "En dehors d'Ambérieu";
-        }
-
-        function renderFriendList() {
-            ui.friendsList.innerHTML = '';
-            const friendIds = Object.keys(appState.friends);
-             const displayNames = generateDisplayNames({ ...appState.userData, user_id: appState.currentUser.id }, appState.friends);
-
-            if (friendIds.length === 0) {
-                ui.friendsList.innerHTML = `<li class="text-center text-gray-500 py-4">Ajoutez votre premier ami !</li>`;
-                return;
-            }
-            friendIds.forEach(id => {
-                const friend = appState.friends[id];
-                const status = friend.is_sharing ? getLocationStatus(friend.lat, friend.lng) : "Ne partage pas sa position";
-                const displayName = displayNames[id] || friend.first_name;
-                const li = document.createElement('li');
-                li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
-                li.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <span class="font-medium text-gray-800">${displayName}</span>
-                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">${status}</p>`;
-                li.addEventListener('click', () => centerOnFriend(id));
-                ui.friendsList.appendChild(li);
-            });
-        }
-
-        function centerOnFriend(friendId) {
-            const friend = appState.friends[friendId];
-            if (friend && friend.is_sharing && appState.friendMarkers[friendId]) {
-                showView('map');
-                appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
-                showStatus(`Centrage sur ${friend.first_name}`, 'info');
-            } else {
-                showStatus(`${friend.first_name} ne partage pas sa position.`, 'warning');
-            }
-        }
-
-        function showMyQrCode() {
-            ui.qrCodeContainer.innerHTML = '';
-            const qr = qrcode(0, 'L');
-            qr.addData(appState.currentUser.id);
-            qr.make();
-            ui.qrCodeContainer.innerHTML = qr.createImgTag(6, 8);
-            ui.myQrCodeModal.classList.remove('hidden');
-        }
-
-        async function startQrScanner() {
-            if (typeof Html5Qrcode === 'undefined') return showStatus("Librairie du scanner non chargée.", "error");
-            ui.qrScannerModal.classList.remove('hidden');
-            if (!appState.html5QrCode) appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
-            try {
-                await appState.html5QrCode.start(
-                    { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => { stopQrScanner(); addFriend(decodedText); },
-                    () => {}
-                );
-            } catch (err) {
-                showStatus("Impossible de démarrer la caméra.", "error");
-                stopQrScanner();
-            }
-        }
-
-        function stopQrScanner() {
-            if (appState.html5QrCode && appState.html5QrCode.isScanning) {
-                appState.html5QrCode.stop()
-                    .catch(err => console.error("Scanner non arrêté correctement.", err))
-                    .finally(() => ui.qrScannerModal.classList.add('hidden'));
-            } else {
-                ui.qrScannerModal.classList.add('hidden');
-            }
-        }
-        
-        async function handleLogin() {
-            const email = ui.loginEmail.value;
-            const password = ui.loginPassword.value;
-            const { data, error } = await appState.supabase.auth.signInWithPassword({ email, password });
-            if (error) return showStatus(error.message, 'error');
-            appState.currentUser = data.user;
-            await startApplication();
-        }
-
-        async function handleRegister() {
-            const firstName = ui.registerFirstname.value.trim();
-            const lastName = ui.registerLastname.value.trim();
-            const email = ui.registerEmail.value.trim();
-            const password = ui.registerPassword.value.trim();
-
-            if (!firstName || !lastName || !email || !password) return showStatus("Veuillez remplir tous les champs.", "warning");
-
-            const { data, error } = await appState.supabase.auth.signUp({ email, password });
-            if (error) return showStatus(error.message, 'error');
-            
-            const { error: profileError } = await appState.supabase.from('locations').insert({
-                user_id: data.user.id,
-                first_name: firstName,
-                last_name: lastName,
-                is_sharing: true
-            });
-
-            if (profileError) {
-                 showStatus("Erreur lors de la création du profil.", "error");
-                 // Optionnel: supprimer l'utilisateur si le profil ne peut être créé
-                 await appState.supabase.auth.api.deleteUser(data.user.id);
-                 return;
-            }
-
-            appState.currentUser = data.user;
-            await startApplication();
-        }
-
-        async function handleLogout() {
-            await appState.supabase.auth.signOut();
-            window.location.reload();
-        }
-
-        function setupAuthEventListeners() {
-            ui.loginBtn.addEventListener('click', handleLogin);
-            ui.registerBtn.addEventListener('click', handleRegister);
-            ui.showRegisterBtn.addEventListener('click', () => {
-                ui.loginModal.classList.add('hidden');
-                ui.registerModal.classList.remove('hidden');
-            });
-            ui.showLoginBtn.addEventListener('click', () => {
-                ui.registerModal.classList.add('hidden');
-                ui.loginModal.classList.remove('hidden');
-            });
-        }
-        
-        function setupAppEventListeners() {
-            ui.buttons.friends.addEventListener('click', () => showView('friends'));
-            ui.buttons.settings.addEventListener('click', () => showView('settings'));
-            ui.buttons.map.addEventListener('click', () => {
-                if (ui.views.map.classList.contains('hidden')) showView('map');
-                else appState.map.setView(lyceeCenter, 18, { animate: true, pan: { duration: 1 } });
-            });
-            ui.shareLocationToggle.addEventListener('change', (e) => {
-                if(e.target.checked) {
-                    if (appState.geolocationEnabled) startLocationTracking();
-                    else showPermanentBanner("Activez la géolocalisation pour partager.");
-                } else {
-                    stopLocationTracking();
-                }
-            });
-            ui.showAttributionToggle.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    appState.map.removeLayer(appState.mapLayers.noLabels);
-                    appState.map.addLayer(appState.mapLayers.withLabels);
-                } else {
-                    appState.map.removeLayer(appState.mapLayers.withLabels);
-                    appState.map.addLayer(appState.mapLayers.noLabels);
-                }
-            });
-            ui.disableScannerToggle.addEventListener('change', (e) => {
-                appState.isScannerDisabled = e.target.checked;
-            });
-            ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
-            ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
-            ui.scanFriendBtn.addEventListener('click', () => {
-                if (appState.isScannerDisabled) {
-                    ui.pasteIdModal.classList.remove('hidden');
-                } else {
-                    startQrScanner();
-                }
-            });
-            ui.closePasteIdModalBtn.addEventListener('click', () => ui.pasteIdModal.classList.add('hidden'));
-            ui.addFriendFromIdBtn.addEventListener('click', () => {
-                const friendId = ui.pasteIdInput.value.trim();
-                if (friendId) {
-                    addFriend(friendId);
-                    ui.pasteIdInput.value = '';
-                    ui.pasteIdModal.classList.add('hidden');
-                } else {
-                    showStatus("Veuillez entrer un ID.", 'warning');
-                }
-            });
-            ui.closeScannerModalBtn.addEventListener('click', stopQrScanner);
-            ui.logoutBtn.addEventListener('click', handleLogout);
-        }
-
-        function showView(viewName) {
-            Object.values(ui.views).forEach(v => v.classList.add('hidden'));
-            ui.views[viewName].classList.remove('hidden');
-            document.querySelectorAll('.menu-btn-container').forEach(el => el.classList.remove('active-menu'));
-            ui.buttons[viewName].classList.add('active-menu');
-            if (viewName === 'map') appState.map.invalidateSize();
-            if (viewName === 'friends') fetchAndDisplayFriends();
-        }
-
-        function showStatus(message, type = 'info') {
-            const colors = { info: 'bg-blue-100 text-blue-800', success: 'bg-green-100 text-green-800', warning: 'bg-yellow-100 text-yellow-800', error: 'bg-red-100 text-red-800' };
-            ui.status.textContent = message;
-            ui.status.className = `absolute top-4 left-1/2 -translate-x-1/2 text-center text-sm font-medium p-3 rounded-xl shadow-lg transition-all duration-300 z-[1001] ${colors[type]}`;
-            ui.status.classList.remove('hidden');
-            setTimeout(() => ui.status.classList.add('hidden'), 3000);
-        }
-        
-        function showPermanentBanner(message) {
-            ui.topBanner.textContent = message;
-            ui.topBanner.className = 'absolute top-24 inset-x-0 mx-auto w-max bg-red-100 text-red-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000]';
-            ui.topBanner.classList.remove('hidden');
-        }
-    </script>
-</body>
-</html>
-
+        const initSupabase = async () => {
+            appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            let { data: { session } } = await appState.supabase.auth.getSession();
+            if (!session) {
+                const { data, error } = await appState.supabase.auth.signInAnonymously();
+                if (error) throw new Error("Échec de l'authentification anonyme.");
+                session
