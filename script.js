@@ -142,14 +142,14 @@ const loadUserProfile = async () => {
     ui.appContainer.classList.remove('hidden');
     showView('map');
     
-    appState.map.whenReady(() => {
+    appState.map.whenReady(async () => {
         const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
         appState.map.setMaxBounds(mapBounds);
-    });
 
-    await fetchAndDisplayFriends();
-    if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-    listenToFriendLocations();
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    });
 };
 
 const handleSignUp = async (event) => {
@@ -173,7 +173,7 @@ const handleSignUp = async (event) => {
     const fullName = `${prenom} ${nom.charAt(0).toUpperCase() + nom.slice(1)}`;
 
     try {
-        const { data, error } = await appState.supabase.auth.signUp({
+        const { data, error: signUpError } = await appState.supabase.auth.signUp({
             email: email,
             password: password,
             options: {
@@ -183,10 +183,14 @@ const handleSignUp = async (event) => {
             }
         });
 
-        if (error) {
-            showAuthStatus(ui.signupStatus, "Ce nom d'utilisateur existe déjà.", 'error');
+        if (signUpError) {
+             if (signUpError.message.includes("User already registered")) {
+                showAuthStatus(ui.signupStatus, "Ce nom d'utilisateur existe déjà.", 'error');
+            } else {
+                showAuthStatus(ui.signupStatus, "Erreur: " + signUpError.message, 'error');
+            }
         } else {
-            showAuthStatus(ui.signupStatus, 'Création de compte réussie ! Redirection...', 'success');
+            showAuthStatus(ui.signupStatus, 'Compte créé avec succès ! Redirection...', 'success');
             ui.signupForm.reset();
             setTimeout(() => {
                 ui.signupContainer.classList.add('hidden');
