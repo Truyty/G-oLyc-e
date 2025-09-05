@@ -197,7 +197,11 @@ const handleLogin = async (event) => {
         });
 
         if (error) {
-            showStatus("Nom ou mot de passe incorrect.", 'error');
+            if (error.message.includes("Invalid login credentials")) {
+                showStatus("Nom ou mot de passe incorrect.", 'error');
+            } else {
+                showStatus("Une erreur de connexion est survenue.", 'error');
+            }
         } else {
             showStatus("Vous êtes connecté !", "success");
             appState.currentUser = data.user;
