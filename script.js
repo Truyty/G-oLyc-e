@@ -101,8 +101,6 @@ const initSupabase = async () => {
 };
 
 const initMap = () => {
-    const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
-
     appState.map = L.map('map', { 
         center: lyceeCenter, 
         zoom: 16, 
@@ -110,7 +108,6 @@ const initMap = () => {
         maxZoom: 19,
         zoomControl: false, 
         attributionControl: true,
-        maxBounds: mapBounds
     });
     
     appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
@@ -144,6 +141,10 @@ const loadUserProfile = async () => {
     ui.authView.classList.add('hidden');
     ui.appContainer.classList.remove('hidden');
     showView('map');
+
+    // CORRECTIF : On applique les limites de la carte une fois qu'elle est visible
+    const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+    appState.map.setMaxBounds(mapBounds);
 
     setTimeout(async () => {
         await fetchAndDisplayFriends();
