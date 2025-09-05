@@ -1,6 +1,6 @@
 const { createClient } = supabase;
-const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
+const SUPABASE_URL = 'https://umyomcjotcowdzlcxyyi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVteW9tY2pvdGNvd2R6bGN4eXlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNzkzMzcsImV4cCI6MjA3MjY1NTMzN30.wSxaf_OlY-sUeO9ANjceXApbT-LgwxHhzOBn_oEnldw';
 
 const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
 const lyceeCenter = [45.96239, 5.34721];
@@ -8,7 +8,7 @@ const lyceeCenter = [45.96239, 5.34721];
 const appState = {
     map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
     friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
-    html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: false
+    html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: true
 };
 
 const ui = {};
@@ -16,10 +16,15 @@ const ui = {};
 document.addEventListener('DOMContentLoaded', async () => {
     Object.assign(ui, {
         loader: document.getElementById('loader'),
+        authView: document.getElementById('auth-view'),
         appContainer: document.getElementById('app-container'),
-        nameModal: document.getElementById('name-input-modal'),
-        nameInput: document.getElementById('name-input'),
-        saveNameBtn: document.getElementById('save-name-btn'),
+        loginForm: document.getElementById('login-form'),
+        signupForm: document.getElementById('signup-form'),
+        loginNameInput: document.getElementById('login-name'),
+        loginPasswordInput: document.getElementById('login-password'),
+        signupFirstnameInput: document.getElementById('signup-firstname'),
+        signupLastnameInput: document.getElementById('signup-lastname'),
+        signupPasswordInput: document.getElementById('signup-password'),
         views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
         buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
         status: document.getElementById('status'),
@@ -29,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         disableScannerToggle: document.getElementById('disable-scanner-toggle'),
         topBanner: document.getElementById('top-banner'),
         myQrCodeBtn: document.getElementById('my-qr-code-btn'),
-        scanFriendBtn: document.getElementById('scan-friend-btn'),
+        addFriendBtn: document.getElementById('add-friend-btn'),
         myQrCodeModal: document.getElementById('my-qr-code-modal'),
         qrCodeContainer: document.getElementById('qr-code-container'),
         closeQrCodeModalBtn: document.getElementById('close-qr-code-modal-btn'),
@@ -40,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         pasteIdInput: document.getElementById('paste-id-input'),
         addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
         closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
+        logoutBtn: document.getElementById('logout-btn'),
     });
 
     try {
@@ -75,15 +81,15 @@ const requestGeolocationPermission = () => new Promise((resolve) => {
 
 const initSupabase = async () => {
     appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let { data: { session } } = await appState.supabase.auth.getSession();
-    if (!session) {
-        const { data, error } = await appState.supabase.auth.signInAnonymously();
-        if (error) throw new Error("Échec de l'authentification anonyme.");
-        session = data.session;
+    const { data: { session } } = await appState.supabase.auth.getSession();
+    
+    if (session) {
+        appState.currentUser = session.user;
+        await loadUserProfile();
+    } else {
+        ui.loader.classList.add('hidden');
+        ui.authView.classList.remove('hidden');
     }
-    if (!session || !session.user) throw new Error("Impossible d'authentifier l'utilisateur.");
-    appState.currentUser = session.user;
-    await checkUserSession();
 };
 
 const initMap = () => {
@@ -105,38 +111,77 @@ const initMap = () => {
     appState.map.attributionControl.setPrefix(false);
 };
 
-const checkUserSession = async () => {
-    const { data } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
-    if (data && data.name) {
-        appState.userName = data.name;
-        appState.isSharing = data.is_sharing !== false;
+const loadUserProfile = async () => {
+    const { data: profile } = await appState.supabase.from('profiles').select('full_name').eq('id', appState.currentUser.id).single();
+    if (profile && profile.full_name) {
+        appState.userName = profile.full_name;
+        
+        const { data: location } = await appState.supabase.from('locations').select('is_sharing').eq('user_id', appState.currentUser.id).single();
+        appState.isSharing = location ? location.is_sharing : true;
+
         ui.shareLocationToggle.checked = appState.isSharing;
         await fetchAndDisplayFriends();
         if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
         listenToFriendLocations();
+
         ui.loader.classList.add('hidden');
+        ui.authView.classList.add('hidden');
         ui.appContainer.classList.remove('hidden');
         showView('map');
     } else {
-        ui.loader.classList.add('hidden');
-        ui.nameModal.style.display = 'flex';
+        showStatus("Profil introuvable.", 'error');
+        handleLogout();
     }
 };
 
-const saveUserName = async () => {
-    const name = ui.nameInput.value.trim();
-    if (name) {
-        appState.userName = name;
-        await updateSupabaseLocation({ name: appState.userName, is_sharing: true });
-        ui.nameModal.style.display = 'none';
-        ui.appContainer.classList.remove('hidden');
-        await fetchAndDisplayFriends();
-        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-        listenToFriendLocations();
-        showView('map');
+const handleSignUp = async (event) => {
+    event.preventDefault();
+    const prenom = ui.signupFirstnameInput.value.trim();
+    const nom = ui.signupLastnameInput.value.trim().toLowerCase();
+    const password = ui.signupPasswordInput.value;
+    const email = `${nom}@geolycee.app`;
+    const fullName = `${prenom} ${nom.charAt(0).toUpperCase() + nom.slice(1)}`;
+
+    const { data, error } = await appState.supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+            data: {
+                full_name: fullName
+            }
+        }
+    });
+
+    if (error) {
+        showStatus(error.message, 'error');
     } else {
-        showStatus("Veuillez entrer un prénom.", 'warning');
+        showStatus('Inscription réussie ! Vous pouvez vous connecter.', 'success');
+        ui.signupForm.reset();
     }
+};
+
+const handleLogin = async (event) => {
+    event.preventDefault();
+    const nom = ui.loginNameInput.value.trim().toLowerCase();
+    const password = ui.loginPasswordInput.value;
+    const email = `${nom}@geolycee.app`;
+
+    const { data, error } = await appState.supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
+
+    if (error) {
+        showStatus("Nom ou mot de passe incorrect.", 'error');
+    } else {
+        appState.currentUser = data.user;
+        await loadUserProfile();
+    }
+};
+
+const handleLogout = async () => {
+    await appState.supabase.auth.signOut();
+    window.location.reload();
 };
 
 const startLocationTracking = () => {
@@ -222,25 +267,25 @@ const listenToFriendLocations = () => {
                 iconSize: [32, 32], iconAnchor: [16, 32]
             });
             if (appState.friendMarkers[friendId]) {
-                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendData.name || 'Ami');
+                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendData.full_name || 'Ami');
             } else {
                 appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
-                    .addTo(appState.map).bindTooltip(friendData.name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
+                    .addTo(appState.map).bindTooltip(friendData.full_name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
             }
         }).subscribe();
 };
 
 const addFriend = async (friendId) => {
-    if (!friendId) return showStatus("QR code invalide.", 'warning');
+    if (!friendId) return showStatus("ID invalide.", 'warning');
     if (friendId === appState.currentUser.id) return showStatus("Vous ne pouvez pas vous ajouter.", 'warning');
-    const { data: friendExists } = await appState.supabase.from('locations').select('name').eq('user_id', friendId).single();
+    const { data: friendExists } = await appState.supabase.from('profiles').select('full_name').eq('id', friendId).single();
     if (!friendExists) return showStatus("Utilisateur introuvable.", 'error');
     const { error } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
     if (error) {
-        if (error.code === '23505') showStatus(`${friendExists.name} est déjà votre ami.`, 'warning');
+        if (error.code === '23505') showStatus(`${friendExists.full_name} est déjà votre ami.`, 'warning');
         else showStatus("Erreur lors de l'ajout.", 'error');
     } else {
-        showStatus(`${friendExists.name} a été ajouté(e) !`, 'success');
+        showStatus(`${friendExists.full_name} a été ajouté(e) !`, 'success');
         await fetchAndDisplayFriends();
     }
 };
@@ -249,9 +294,14 @@ const fetchAndDisplayFriends = async () => {
     const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
     const friendIds = relations.map(r => r.friend_id);
     if (friendIds.length === 0) return renderFriendList();
-    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, name, lat, lng, is_sharing').in('user_id', friendIds);
+    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, lat, lng, is_sharing').in('user_id', friendIds);
+    const { data: profilesData } = await appState.supabase.from('profiles').select('id, full_name').in('id', friendIds);
+    
     appState.friends = {};
-    friendsData.forEach(friend => { appState.friends[friend.user_id] = friend; });
+    profilesData.forEach(profile => {
+        const location = friendsData.find(loc => loc.user_id === profile.id) || {};
+        appState.friends[profile.id] = { ...profile, ...location };
+    });
     renderFriendList();
 };
 
@@ -271,7 +321,7 @@ const renderFriendList = () => {
     ui.friendsList.innerHTML = '';
     const friendIds = Object.keys(appState.friends);
     if (friendIds.length === 0) {
-        ui.friendsList.innerHTML = `<li class="text-center text-gray-500 py-4">Scannez le QR code d'un ami.</li>`;
+        ui.friendsList.innerHTML = `<li class="text-center text-gray-500 py-4">Ajoutez votre premier ami.</li>`;
         return;
     }
     friendIds.forEach(id => {
@@ -281,7 +331,7 @@ const renderFriendList = () => {
         li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
         li.innerHTML = `
             <div class="flex items-center justify-between">
-                <span class="font-medium text-gray-800">${friend.name}</span>
+                <span class="font-medium text-gray-800">${friend.full_name}</span>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
             </div>
             <p class="text-sm text-gray-500 mt-1">${status}</p>`;
@@ -295,9 +345,9 @@ const centerOnFriend = (friendId) => {
     if (friend && friend.is_sharing && appState.friendMarkers[friendId]) {
         showView('map');
         appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
-        showStatus(`Centrage sur ${friend.name}`, 'info');
+        showStatus(`Centrage sur ${friend.full_name}`, 'info');
     } else {
-        showStatus(`${friend.name} ne partage pas sa position.`, 'warning');
+        showStatus(`${friend.full_name} ne partage pas sa position.`, 'warning');
     }
 };
 
@@ -343,7 +393,10 @@ const stopQrScanner = () => {
 };
 
 const setupEventListeners = () => {
-    ui.saveNameBtn.addEventListener('click', saveUserName);
+    ui.loginForm.addEventListener('submit', handleLogin);
+    ui.signupForm.addEventListener('submit', handleSignUp);
+    ui.logoutBtn.addEventListener('click', handleLogout);
+
     ui.buttons.friends.addEventListener('click', () => showView('friends'));
     ui.buttons.settings.addEventListener('click', () => showView('settings'));
     ui.buttons.map.addEventListener('click', () => {
@@ -372,7 +425,7 @@ const setupEventListeners = () => {
     });
     ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
     ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
-    ui.scanFriendBtn.addEventListener('click', () => {
+    ui.addFriendBtn.addEventListener('click', () => {
         if (appState.isScannerDisabled) {
             ui.pasteIdModal.classList.remove('hidden');
         } else {
