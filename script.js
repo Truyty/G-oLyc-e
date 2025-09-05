@@ -112,8 +112,12 @@ const initMap = () => {
 };
 
 const loadApp = async () => {
-    const { data } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
+    const { data, error } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
 
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found, which is ok for a new user
+        throw new Error("Erreur de base de données : " + error.message);
+    }
+    
     if (data && data.name) {
         appState.userName = data.name;
         appState.isSharing = data.is_sharing;
@@ -123,15 +127,14 @@ const loadApp = async () => {
         ui.appContainer.classList.remove('hidden');
         showView('map');
 
-        // CORRECTIF : Attendre que la carte soit prête avant de définir les limites.
-        appState.map.whenReady(() => {
+        appState.map.whenReady(async () => {
             const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
             appState.map.setMaxBounds(mapBounds);
-        });
 
-        await fetchAndDisplayFriends();
-        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-        listenToFriendLocations();
+            await fetchAndDisplayFriends();
+            if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+            listenToFriendLocations();
+        });
     } else {
         ui.loader.classList.add('hidden');
         ui.nameModal.style.display = 'flex';
@@ -148,15 +151,14 @@ const saveUserName = async () => {
         ui.appContainer.classList.remove('hidden');
         showView('map');
         
-        // CORRECTIF : Attendre que la carte soit prête avant de définir les limites.
-        appState.map.whenReady(() => {
+        appState.map.whenReady(async () => {
             const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
             appState.map.setMaxBounds(mapBounds);
-        });
 
-        await fetchAndDisplayFriends();
-        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-        listenToFriendLocations();
+            await fetchAndDisplayFriends();
+            if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+            listenToFriendLocations();
+        });
     } else {
         showStatus("Veuillez entrer un prénom.", 'warning');
     }
