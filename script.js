@@ -1,0 +1,420 @@
+const { createClient } = supabase;
+const SUPABASE_URL = 'https://yategsejbcdsqdbypgzc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhdGVnc2VqYmNkc3FkYnlwZ3pjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM0MjIsImV4cCI6MjA3MjUyOTQyMn0.R8vnc1mfbxFlNraqqDp082fxBomKIaTui_3YzZwUIQ0';
+
+const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
+const lyceeCenter = [45.96239, 5.34721];
+
+const appState = {
+    map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
+    friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
+    html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: false
+};
+
+const ui = {};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    Object.assign(ui, {
+        loader: document.getElementById('loader'),
+        appContainer: document.getElementById('app-container'),
+        nameModal: document.getElementById('name-input-modal'),
+        nameInput: document.getElementById('name-input'),
+        saveNameBtn: document.getElementById('save-name-btn'),
+        views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
+        buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
+        status: document.getElementById('status'),
+        friendsList: document.getElementById('friends-list'),
+        shareLocationToggle: document.getElementById('share-location-toggle'),
+        showAttributionToggle: document.getElementById('show-attribution-toggle'),
+        disableScannerToggle: document.getElementById('disable-scanner-toggle'),
+        topBanner: document.getElementById('top-banner'),
+        myQrCodeBtn: document.getElementById('my-qr-code-btn'),
+        scanFriendBtn: document.getElementById('scan-friend-btn'),
+        myQrCodeModal: document.getElementById('my-qr-code-modal'),
+        qrCodeContainer: document.getElementById('qr-code-container'),
+        closeQrCodeModalBtn: document.getElementById('close-qr-code-modal-btn'),
+        qrScannerModal: document.getElementById('qr-scanner-modal'),
+        qrScannerContainer: document.getElementById('qr-scanner-container'),
+        closeScannerModalBtn: document.getElementById('close-scanner-modal-btn'),
+        pasteIdModal: document.getElementById('paste-id-modal'),
+        pasteIdInput: document.getElementById('paste-id-input'),
+        addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
+        closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
+    });
+
+    try {
+        initMap();
+        const geoResult = await requestGeolocationPermission();
+        appState.geolocationEnabled = geoResult.success;
+        if (!geoResult.success) {
+            showPermanentBanner(geoResult.error);
+        }
+        
+        await initSupabase();
+        setupEventListeners();
+
+    } catch (error) {
+        console.error("Fatal initialization error:", error);
+        if (ui.loader) {
+            ui.loader.innerHTML = `<div class="text-center p-4"><p class="mt-4 text-gray-700 font-semibold">Erreur d'Initialisation</p><p class="mt-2 text-gray-600">${error.message}</p></div>`;
+        }
+    }
+});
+
+const requestGeolocationPermission = () => new Promise((resolve) => {
+    if (!("geolocation" in navigator)) {
+        resolve({ success: false, error: "Géolocalisation non supportée." });
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ success: true, position: pos }),
+        (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur inconnue." }),
+        highAccuracyOptions
+    );
+});
+
+const initSupabase = async () => {
+    appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let { data: { session } } = await appState.supabase.auth.getSession();
+    if (!session) {
+        const { data, error } = await appState.supabase.auth.signInAnonymously();
+        if (error) throw new Error("Échec de l'authentification anonyme.");
+        session = data.session;
+    }
+    if (!session || !session.user) throw new Error("Impossible d'authentifier l'utilisateur.");
+    appState.currentUser = session.user;
+    await checkUserSession();
+};
+
+const initMap = () => {
+    appState.map = L.map('map', { 
+        center: lyceeCenter, 
+        zoom: 18, 
+        zoomControl: false, 
+        attributionControl: true
+    });
+    
+    appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
+    });
+    appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    });
+
+    appState.mapLayers.noLabels.addTo(appState.map);
+    appState.map.attributionControl.setPrefix(false);
+};
+
+const checkUserSession = async () => {
+    const { data } = await appState.supabase.from('locations').select('name, is_sharing').eq('user_id', appState.currentUser.id).single();
+    if (data && data.name) {
+        appState.userName = data.name;
+        appState.isSharing = data.is_sharing !== false;
+        ui.shareLocationToggle.checked = appState.isSharing;
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+        ui.loader.classList.add('hidden');
+        ui.appContainer.classList.remove('hidden');
+        showView('map');
+    } else {
+        ui.loader.classList.add('hidden');
+        ui.nameModal.style.display = 'flex';
+    }
+};
+
+const saveUserName = async () => {
+    const name = ui.nameInput.value.trim();
+    if (name) {
+        appState.userName = name;
+        await updateSupabaseLocation({ name: appState.userName, is_sharing: true });
+        ui.nameModal.style.display = 'none';
+        ui.appContainer.classList.remove('hidden');
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+        showView('map');
+    } else {
+        showStatus("Veuillez entrer un prénom.", 'warning');
+    }
+};
+
+const startLocationTracking = () => {
+    if (appState.watchId) return;
+    showStatus("Recherche de votre position...", 'info');
+    appState.watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+            ui.status.classList.add('hidden');
+            updateSupabaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            updateUserMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        },
+        (err) => {
+            showPermanentBanner("Erreur ou perte de la géolocalisation.");
+            stopLocationTracking();
+        }, 
+        highAccuracyOptions
+    );
+};
+
+const stopLocationTracking = async () => {
+    if (appState.watchId) {
+        navigator.geolocation.clearWatch(appState.watchId);
+        appState.watchId = null;
+        await updateSupabaseLocation({ is_sharing: false });
+        showStatus("Partage de position arrêté.", 'info');
+    }
+};
+
+const updateSupabaseLocation = async (data) => {
+    try {
+        await appState.supabase.from('locations').upsert({ ...data, user_id: appState.currentUser.id, timestamp: new Date().toISOString() }, { onConflict: 'user_id' });
+    } catch (e) {
+        showStatus("Erreur de synchronisation.", 'error');
+    }
+};
+
+const updateUserMarker = (lat, lng, accuracy) => {
+    const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
+    const latLng = L.latLng(lat, lng);
+    const userIcon = L.divIcon({
+        className: 'custom-user-icon',
+        html: `<div class="relative w-6 h-6 flex items-center justify-center"><div class="pulse-ring"></div><svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg></div>`,
+        iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    if (!appState.userMarker) {
+        appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
+        appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
+        appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
+        if (amberieuBounds.contains(latLng)) appState.map.setView(latLng, 18);
+    } else {
+        appState.userMarker.setLatLng(latLng);
+        appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
+        appState.userMarker.setTooltipContent(appState.userName);
+    }
+    if (!amberieuBounds.contains(latLng)) {
+         showPermanentBanner("Vous êtes en dehors de la zone d'Ambérieu.");
+    } else {
+         if(ui.topBanner.textContent.includes("dehors de la zone")) {
+            ui.topBanner.classList.add('hidden');
+         }
+    }
+};
+
+const listenToFriendLocations = () => {
+    appState.supabase.channel('public:locations')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
+            const friendData = payload.new;
+            if (!friendData || friendData.user_id === appState.currentUser.id || !appState.friends[friendData.user_id]) return;
+            appState.friends[friendData.user_id] = { ...appState.friends[friendData.user_id], ...friendData };
+            renderFriendList();
+            const friendId = friendData.user_id;
+            const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
+            if (!shouldDisplay) {
+                if (appState.friendMarkers[friendId]) {
+                    appState.map.removeLayer(appState.friendMarkers[friendId]);
+                    delete appState.friendMarkers[friendId];
+                }
+                return;
+            }
+            const friendIcon = L.divIcon({
+                className: 'custom-friend-icon',
+                html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
+                iconSize: [32, 32], iconAnchor: [16, 32]
+            });
+            if (appState.friendMarkers[friendId]) {
+                appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendData.name || 'Ami');
+            } else {
+                appState.friendMarkers[friendId] = L.marker([friendData.lat, friendData.lng], { icon: friendIcon })
+                    .addTo(appState.map).bindTooltip(friendData.name || 'Ami', { permanent: true, direction: 'top', offset: [0, -35], className: 'name-tooltip' }).openTooltip();
+            }
+        }).subscribe();
+};
+
+const addFriend = async (friendId) => {
+    if (!friendId) return showStatus("QR code invalide.", 'warning');
+    if (friendId === appState.currentUser.id) return showStatus("Vous ne pouvez pas vous ajouter.", 'warning');
+    const { data: friendExists } = await appState.supabase.from('locations').select('name').eq('user_id', friendId).single();
+    if (!friendExists) return showStatus("Utilisateur introuvable.", 'error');
+    const { error } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
+    if (error) {
+        if (error.code === '23505') showStatus(`${friendExists.name} est déjà votre ami.`, 'warning');
+        else showStatus("Erreur lors de l'ajout.", 'error');
+    } else {
+        showStatus(`${friendExists.name} a été ajouté(e) !`, 'success');
+        await fetchAndDisplayFriends();
+    }
+};
+
+const fetchAndDisplayFriends = async () => {
+    const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
+    const friendIds = relations.map(r => r.friend_id);
+    if (friendIds.length === 0) return renderFriendList();
+    const { data: friendsData } = await appState.supabase.from('locations').select('user_id, name, lat, lng, is_sharing').in('user_id', friendIds);
+    appState.friends = {};
+    friendsData.forEach(friend => { appState.friends[friend.user_id] = friend; });
+    renderFriendList();
+};
+
+const getLocationStatus = (lat, lng) => {
+    const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
+    const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
+    const shoppingZone = L.polygon([[45.9588, 5.3533], [45.9573, 5.3562], [45.9594, 5.3615], [45.9611, 5.3585]]);
+    if (!lat || !lng) return "Position inconnue";
+    const point = L.latLng(lat, lng);
+    if (lyceeZone.getBounds().contains(point)) return "Au lycée";
+    if (shoppingZone.getBounds().contains(point)) return "Zone commerciale";
+    if (amberieuBounds.contains(point)) return "À Ambérieu";
+    return "En dehors d'Ambérieu";
+};
+
+const renderFriendList = () => {
+    ui.friendsList.innerHTML = '';
+    const friendIds = Object.keys(appState.friends);
+    if (friendIds.length === 0) {
+        ui.friendsList.innerHTML = `<li class="text-center text-gray-500 py-4">Scannez le QR code d'un ami.</li>`;
+        return;
+    }
+    friendIds.forEach(id => {
+        const friend = appState.friends[id];
+        const status = friend.is_sharing ? getLocationStatus(friend.lat, friend.lng) : "Ne partage pas sa position";
+        const li = document.createElement('li');
+        li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
+        li.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="font-medium text-gray-800">${friend.name}</span>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">${status}</p>`;
+        li.addEventListener('click', () => centerOnFriend(id));
+        ui.friendsList.appendChild(li);
+    });
+};
+
+const centerOnFriend = (friendId) => {
+    const friend = appState.friends[friendId];
+    if (friend && friend.is_sharing && appState.friendMarkers[friendId]) {
+        showView('map');
+        appState.map.setView(appState.friendMarkers[friendId].getLatLng(), 18, { animate: true, pan: { duration: 1 } });
+        showStatus(`Centrage sur ${friend.name}`, 'info');
+    } else {
+        showStatus(`${friend.name} ne partage pas sa position.`, 'warning');
+    }
+};
+
+const showMyQrCode = () => {
+    ui.qrCodeContainer.innerHTML = '';
+    const qr = qrcode(0, 'L');
+    qr.addData(appState.currentUser.id);
+    qr.make();
+    ui.qrCodeContainer.innerHTML = qr.createImgTag(6, 8);
+    ui.myQrCodeModal.classList.remove('hidden');
+};
+
+const startQrScanner = async () => {
+    if (typeof Html5Qrcode === 'undefined') {
+        showStatus("Librairie du scanner non chargée.", "error");
+        return;
+    }
+    ui.qrScannerModal.classList.remove('hidden');
+    if (!appState.html5QrCode) {
+         appState.html5QrCode = new Html5Qrcode("qr-scanner-container");
+    }
+    try {
+        await appState.html5QrCode.start(
+            { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => { stopQrScanner(); addFriend(decodedText); },
+            () => {}
+        );
+    } catch (err) {
+        console.error("Erreur du scanner QR:", err);
+        showStatus("Impossible de démarrer la caméra.", "error");
+        stopQrScanner();
+    }
+};
+
+const stopQrScanner = () => {
+    if (appState.html5QrCode && appState.html5QrCode.isScanning) {
+        appState.html5QrCode.stop()
+            .catch(err => console.error("Scanner non arrêté correctement.", err))
+            .finally(() => ui.qrScannerModal.classList.add('hidden'));
+    } else {
+        ui.qrScannerModal.classList.add('hidden');
+    }
+};
+
+const setupEventListeners = () => {
+    ui.saveNameBtn.addEventListener('click', saveUserName);
+    ui.buttons.friends.addEventListener('click', () => showView('friends'));
+    ui.buttons.settings.addEventListener('click', () => showView('settings'));
+    ui.buttons.map.addEventListener('click', () => {
+        if (ui.views.map.classList.contains('hidden')) showView('map');
+        else appState.map.setView(lyceeCenter, 18, { animate: true, pan: { duration: 1 } });
+    });
+    ui.shareLocationToggle.addEventListener('change', (e) => {
+        if(e.target.checked) {
+            if (appState.geolocationEnabled) startLocationTracking();
+            else showPermanentBanner("Activez la géolocalisation pour partager.");
+        } else {
+            stopLocationTracking();
+        }
+    });
+    ui.showAttributionToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            appState.map.removeLayer(appState.mapLayers.noLabels);
+            appState.map.addLayer(appState.mapLayers.withLabels);
+        } else {
+            appState.map.removeLayer(appState.mapLayers.withLabels);
+            appState.map.addLayer(appState.mapLayers.noLabels);
+        }
+    });
+    ui.disableScannerToggle.addEventListener('change', (e) => {
+        appState.isScannerDisabled = e.target.checked;
+    });
+    ui.myQrCodeBtn.addEventListener('click', showMyQrCode);
+    ui.closeQrCodeModalBtn.addEventListener('click', () => ui.myQrCodeModal.classList.add('hidden'));
+    ui.scanFriendBtn.addEventListener('click', () => {
+        if (appState.isScannerDisabled) {
+            ui.pasteIdModal.classList.remove('hidden');
+        } else {
+            startQrScanner();
+        }
+    });
+    ui.closePasteIdModalBtn.addEventListener('click', () => {
+        ui.pasteIdModal.classList.add('hidden');
+    });
+    ui.addFriendFromIdBtn.addEventListener('click', () => {
+        const friendId = ui.pasteIdInput.value.trim();
+        if (friendId) {
+            addFriend(friendId);
+            ui.pasteIdInput.value = '';
+            ui.pasteIdModal.classList.add('hidden');
+        } else {
+            showStatus("Veuillez entrer un ID.", 'warning');
+        }
+    });
+    ui.closeScannerModalBtn.addEventListener('click', stopQrScanner);
+};
+
+const showView = (viewName) => {
+    Object.values(ui.views).forEach(v => v.classList.add('hidden'));
+    ui.views[viewName].classList.remove('hidden');
+    document.querySelectorAll('.menu-btn-container').forEach(el => el.classList.remove('active-menu'));
+    ui.buttons[viewName].classList.add('active-menu');
+    if (viewName === 'map') appState.map.invalidateSize();
+    if (viewName === 'friends') fetchAndDisplayFriends();
+};
+
+const showStatus = (message, type = 'info') => {
+    const colors = { info: 'bg-blue-100 text-blue-800', success: 'bg-green-100 text-green-800', warning: 'bg-yellow-100 text-yellow-800', error: 'bg-red-100 text-red-800' };
+    ui.status.textContent = message;
+    ui.status.className = `absolute top-4 left-1/2 -translate-x-1/2 text-center text-sm font-medium p-3 rounded-xl shadow-lg transition-all duration-300 z-[1001] ${colors[type]}`;
+    ui.status.classList.remove('hidden');
+    setTimeout(() => ui.status.classList.add('hidden'), 3000);
+};
+
+const showPermanentBanner = (message) => {
+    ui.topBanner.textContent = message;
+    ui.topBanner.className = 'absolute top-24 inset-x-0 mx-auto w-max bg-red-100 text-red-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000]';
+    ui.topBanner.classList.remove('hidden');
+};
+
