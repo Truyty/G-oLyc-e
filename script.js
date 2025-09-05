@@ -101,18 +101,23 @@ const initSupabase = async () => {
 };
 
 const initMap = () => {
+    const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+
     appState.map = L.map('map', { 
         center: lyceeCenter, 
-        zoom: 18, 
+        zoom: 16, 
+        minZoom: 16,
+        maxZoom: 19,
         zoomControl: false, 
-        attributionControl: true
+        attributionControl: true,
+        maxBounds: mapBounds
     });
     
     appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
+        attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
     });
     appState.mapLayers.withLabels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap'
+        attribution: '&copy; OpenStreetMap', maxNativeZoom: 19
     });
 
     appState.mapLayers.noLabels.addTo(appState.map);
@@ -134,21 +139,24 @@ const loadUserProfile = async () => {
 
     ui.shareLocationToggle.checked = appState.isSharing;
     ui.disableScannerToggle.checked = appState.isScannerDisabled;
-    await fetchAndDisplayFriends();
-    if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-    listenToFriendLocations();
 
     ui.loader.classList.add('hidden');
     ui.authView.classList.add('hidden');
     ui.appContainer.classList.remove('hidden');
     showView('map');
+
+    setTimeout(async () => {
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    }, 100);
 };
 
 const handleSignUp = async (event) => {
     event.preventDefault();
     ui.signupBtn.disabled = true;
     ui.signupBtn.textContent = 'Création...';
-    showAuthStatus(ui.signupStatus, '', 'success'); // Clear previous status
+    showAuthStatus(ui.signupStatus, '', 'success');
     
     const prenom = ui.signupFirstnameInput.value.trim();
     const nom = ui.signupLastnameInput.value.trim().toLowerCase();
@@ -183,7 +191,7 @@ const handleSignUp = async (event) => {
             setTimeout(() => {
                 ui.signupContainer.classList.add('hidden');
                 ui.loginContainer.classList.remove('hidden');
-                showAuthStatus(ui.signupStatus, '', 'success'); // Clear after transition
+                showAuthStatus(ui.signupStatus, '', 'success');
             }, 2000);
         }
     } catch(e) {
@@ -198,7 +206,7 @@ const handleLogin = async (event) => {
     event.preventDefault();
     ui.loginBtn.disabled = true;
     ui.loginBtn.textContent = 'Connexion...';
-    showAuthStatus(ui.loginStatus, '', 'success'); // Clear previous status
+    showAuthStatus(ui.loginStatus, '', 'success');
 
     const nom = ui.loginNameInput.value.trim().toLowerCase();
     const password = ui.loginPasswordInput.value;
@@ -278,10 +286,7 @@ const updateSupabaseLocation = async (data) => {
 
 const updateUserMarker = (coords) => {
     const { latitude, longitude, accuracy, heading, speed } = coords;
-    const lat = latitude;
-    const lng = longitude;
-    const amberieuBounds = L.latLngBounds([45.94, 5.30], [46.01, 5.40]);
-    const latLng = L.latLng(lat, lng);
+    const latLng = L.latLng(latitude, longitude);
     
     let userIconHtml;
     if (speed && speed > 1 && heading !== null && !isNaN(heading)) {
@@ -313,19 +318,12 @@ const updateUserMarker = (coords) => {
         appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
         appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
         appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-        if (amberieuBounds.contains(latLng)) appState.map.setView(latLng, 18);
+        appState.map.setView(latLng, 18);
     } else {
         appState.userMarker.setLatLng(latLng);
         appState.userMarker.setIcon(userIcon);
         appState.userAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
         appState.userMarker.setTooltipContent(appState.userName);
-    }
-    if (!amberieuBounds.contains(latLng)) {
-         showPermanentBanner("Vous êtes en dehors de la zone d'Ambérieu.");
-    } else {
-         if(ui.topBanner.textContent.includes("dehors de la zone")) {
-            ui.topBanner.classList.add('hidden');
-         }
     }
 };
 
