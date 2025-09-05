@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         signupBtn: document.getElementById('signup-btn'),
         showLoginBtn: document.getElementById('show-login-btn'),
         showSignupBtn: document.getElementById('show-signup-btn'),
+        signupStatus: document.getElementById('signup-status'),
+        loginStatus: document.getElementById('login-status'),
         views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
         buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
         status: document.getElementById('status'),
@@ -146,6 +148,7 @@ const handleSignUp = async (event) => {
     event.preventDefault();
     ui.signupBtn.disabled = true;
     ui.signupBtn.textContent = 'Création...';
+    showAuthStatus(ui.signupStatus, '', 'success'); // Clear previous status
     
     const prenom = ui.signupFirstnameInput.value.trim();
     const nom = ui.signupLastnameInput.value.trim().toLowerCase();
@@ -165,16 +168,18 @@ const handleSignUp = async (event) => {
         });
 
         if (error) {
-            showStatus(error.message, 'error');
+            showAuthStatus(ui.signupStatus, error.message, 'error');
         } else {
-            showStatus('Compte créé avec succès ! Veuillez vous connecter.', 'success');
+            showAuthStatus(ui.signupStatus, 'Création de compte réussie ! Redirection...', 'success');
             ui.signupForm.reset();
-            // Basculer vers la vue de connexion
-            ui.signupContainer.classList.add('hidden');
-            ui.loginContainer.classList.remove('hidden');
+            setTimeout(() => {
+                ui.signupContainer.classList.add('hidden');
+                ui.loginContainer.classList.remove('hidden');
+                showAuthStatus(ui.signupStatus, '', 'success'); // Clear after transition
+            }, 2000);
         }
     } catch(e) {
-        showStatus("Une erreur est survenue.", "error");
+        showAuthStatus(ui.signupStatus, "Une erreur est survenue.", "error");
     } finally {
         ui.signupBtn.disabled = false;
         ui.signupBtn.textContent = 'Créer un compte';
@@ -185,6 +190,7 @@ const handleLogin = async (event) => {
     event.preventDefault();
     ui.loginBtn.disabled = true;
     ui.loginBtn.textContent = 'Connexion...';
+    showAuthStatus(ui.loginStatus, '', 'success'); // Clear previous status
 
     const nom = ui.loginNameInput.value.trim().toLowerCase();
     const password = ui.loginPasswordInput.value;
@@ -198,9 +204,9 @@ const handleLogin = async (event) => {
 
         if (error) {
             if (error.message.includes("Invalid login credentials")) {
-                showStatus("Nom ou mot de passe incorrect.", 'error');
+                showAuthStatus(ui.loginStatus, "Nom ou mot de passe incorrect.", 'error');
             } else {
-                showStatus("Une erreur de connexion est survenue.", 'error');
+                showAuthStatus(ui.loginStatus, "Une erreur de connexion est survenue.", 'error');
             }
         } else {
             showStatus("Vous êtes connecté !", "success");
@@ -208,7 +214,7 @@ const handleLogin = async (event) => {
             await loadUserProfile();
         }
     } catch (e) {
-        showStatus("Une erreur est survenue.", "error");
+        showAuthStatus(ui.loginStatus, "Une erreur est survenue.", "error");
     } finally {
         ui.loginBtn.disabled = false;
         ui.loginBtn.textContent = 'Se connecter';
@@ -511,6 +517,11 @@ const showStatus = (message, type = 'info') => {
             ui.status.classList.add('hidden');
         }
     }, 3000);
+};
+
+const showAuthStatus = (element, message, type = 'error') => {
+    element.textContent = message;
+    element.className = `mb-4 text-sm font-semibold ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
 };
 
 const showPermanentBanner = (message) => {
