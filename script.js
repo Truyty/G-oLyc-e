@@ -141,16 +141,16 @@ const loadUserProfile = async () => {
     ui.authView.classList.add('hidden');
     ui.appContainer.classList.remove('hidden');
     showView('map');
-    
-    // CORRECTIF : Utilisation de whenReady pour s'assurer que la carte est prête
-    appState.map.whenReady(() => {
-        const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
-        appState.map.setMaxBounds(mapBounds);
-    });
 
-    await fetchAndDisplayFriends();
-    if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
-    listenToFriendLocations();
+    // CORRECTIF : On applique les limites de la carte une fois qu'elle est visible
+    const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+    appState.map.setMaxBounds(mapBounds);
+
+    setTimeout(async () => {
+        await fetchAndDisplayFriends();
+        if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+        listenToFriendLocations();
+    }, 100);
 };
 
 const handleSignUp = async (event) => {
@@ -319,11 +319,7 @@ const updateUserMarker = (coords) => {
         appState.userAccuracyCircle = L.circle(latLng, { radius: accuracy, color: '#3B82F6', fillColor: '#3B82F6', fillOpacity: 0.15, weight: 1 }).addTo(appState.map);
         appState.userMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(appState.map);
         appState.userMarker.bindTooltip(appState.userName, { permanent: true, direction: 'top', offset: [0, -15], className: 'name-tooltip' }).openTooltip();
-        
-        const distanceToLycee = latLng.distanceTo(lyceeCenter);
-        if (distanceToLycee <= 1000) {
-            appState.map.setView(latLng, 18);
-        }
+        appState.map.setView(latLng, 18);
     } else {
         appState.userMarker.setLatLng(latLng);
         appState.userMarker.setIcon(userIcon);
