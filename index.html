@@ -151,8 +151,14 @@
         <div id="top-banner" class="absolute top-24 inset-x-0 mx-auto w-max bg-yellow-100 text-yellow-800 text-sm font-semibold px-4 py-2 rounded-full shadow-lg z-[1000] hidden"></div>
 
         <main class="flex-grow w-full h-full relative overflow-hidden">
-            <div id="map-view" class="w-full h-full">
+            <div id="map-view" class="w-full h-full relative">
                 <div id="map"></div>
+                <!-- Bouton pour centrer la carte sur l'utilisateur -->
+                <button id="center-map-btn" class="absolute bottom-24 right-4 z-[1000] bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition">
+                    <svg class="w-6 h-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                </button>
             </div>
             <div id="friends-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
                 <div class="max-w-md mx-auto">
@@ -277,6 +283,7 @@
             // App Views & Buttons
             views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
             buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
+            centerMapBtn: document.getElementById('center-map-btn'),
             // Modals
             nameModal: document.getElementById('name-input-modal'),
             nameInput: document.getElementById('name-input'),
@@ -373,13 +380,6 @@
         ui.authView.classList.add('hidden');
         ui.loader.classList.remove('hidden');
 
-        const geoResult = await requestGeolocationPermission();
-        appState.geolocationEnabled = geoResult.success;
-        if (!geoResult.success) {
-            showPermanentBanner(geoResult.error);
-        }
-
-        // Fetch profile and location data in one go
         const { data, error } = await appState.supabase
             .from('profiles')
             .select(`
@@ -411,11 +411,10 @@
                 appState.map.setMaxBounds(mapBounds);
 
                 await fetchAndDisplayFriends();
-                if (appState.isSharing && appState.geolocationEnabled) startLocationTracking();
+                initializeGeolocation();
                 listenToFriendLocations();
             });
         } else {
-            // Fallback: If profile or name is missing, prompt the user.
             ui.nameModal.style.display = 'flex';
         }
     };
@@ -433,7 +432,6 @@
              return;
         }
 
-        // Generate a unique, "fake" email for Supabase authentication
         const sanitizedFirstname = firstname.toLowerCase().replace(/[^a-z0-9]/g, '');
         const sanitizedLastname = lastname.toLowerCase().replace(/[^a-z0-9]/g, '');
         const email = `${sanitizedFirstname}.${sanitizedLastname}@geolycee.app`;
@@ -442,7 +440,7 @@
         ui.signupStatus.className = "text-blue-600";
         
         const { error } = await appState.supabase.auth.signUp({
-            email, // Use the generated email
+            email,
             password,
             options: {
                 data: {
@@ -470,7 +468,6 @@
         const lastname = e.target.elements['login-lastname'].value.trim();
         const password = e.target.elements['login-password'].value;
 
-        // Re-generate the same "fake" email used at signup
         const sanitizedFirstname = firstname.toLowerCase().replace(/[^a-z0-9]/g, '');
         const sanitizedLastname = lastname.toLowerCase().replace(/[^a-z0-9]/g, '');
         const email = `${sanitizedFirstname}.${sanitizedLastname}@geolycee.app`;
@@ -479,7 +476,7 @@
         ui.loginStatus.className = "text-blue-600";
         
         const { error } = await appState.supabase.auth.signInWithPassword({
-            email, // Use the generated email
+            email,
             password,
         });
 
@@ -487,7 +484,6 @@
             ui.loginStatus.textContent = "Nom, prénom ou mot de passe incorrect.";
             ui.loginStatus.className = "text-red-600";
         }
-        // onAuthStateChange will handle successful login
     };
 
     const handleLogout = async () => {
@@ -498,7 +494,6 @@
         const name = ui.nameInput.value.trim();
         if (name) {
             appState.userName = name;
-            // Update the 'full_name' in the 'profiles' table.
             const { error } = await appState.supabase
                 .from('profiles')
                 .update({ full_name: appState.userName })
@@ -508,7 +503,7 @@
                 showStatus("Erreur lors de la sauvegarde du nom.", 'error');
             } else {
                 ui.nameModal.style.display = 'none';
-                await loadApp(); // Reload app data now that name is set
+                await loadApp();
             }
         } else {
             showStatus("Veuillez entrer un nom.", 'warning');
@@ -516,6 +511,34 @@
     };
 
     // --- Geolocation ---
+    const initializeGeolocation = async () => {
+        if (!("geolocation" in navigator) || !("permissions" in navigator)) {
+            showPermanentBanner("Géolocalisation non supportée par ce navigateur.");
+            appState.geolocationEnabled = false;
+            return;
+        }
+
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+
+        const handlePermissionState = () => {
+            if (permissionStatus.state === 'granted') {
+                appState.geolocationEnabled = true;
+                if (appState.isSharing) {
+                    startLocationTracking();
+                }
+            } else if (permissionStatus.state === 'prompt') {
+                appState.geolocationEnabled = false;
+                 showStatus("Cliquez sur la cible pour activer la géolocalisation.", "info");
+            } else { // 'denied'
+                appState.geolocationEnabled = false;
+                showPermanentBanner("Géolocalisation refusée. Activez-la dans les paramètres du site.");
+            }
+        };
+
+        handlePermissionState();
+        permissionStatus.onchange = handlePermissionState;
+    };
+    
     const requestGeolocationPermission = () => new Promise((resolve) => {
         if (!("geolocation" in navigator)) {
             return resolve({ success: false, error: "Géolocalisation non supportée." });
@@ -526,6 +549,23 @@
             highAccuracyOptions
         );
     });
+
+    const handleCenterMapClick = async () => {
+        if (appState.geolocationEnabled && appState.userMarker) {
+            appState.map.setView(appState.userMarker.getLatLng(), 18, { animate: true });
+            return;
+        }
+        
+        // This is the user gesture needed to ask for permission
+        const geoResult = await requestGeolocationPermission();
+        if (geoResult.success) {
+            appState.geolocationEnabled = true;
+             // The permission listener will automatically call startLocationTracking if sharing is on
+        } else {
+            appState.geolocationEnabled = false;
+            showPermanentBanner(geoResult.error);
+        }
+    };
     
     const startLocationTracking = () => {
         if (appState.watchId) return;
@@ -563,7 +603,7 @@
 
     // --- Map & Markers ---
     const updateUserMarker = (coords) => {
-        const { latitude, longitude, accuracy, heading, speed } = coords;
+        const { latitude, longitude, accuracy } = coords;
         const latLng = L.latLng(latitude, longitude);
         
         let userIconHtml = `
@@ -596,21 +636,19 @@
     
     // --- Realtime & Friends ---
     const listenToFriendLocations = () => {
-        if (appState.realtimeChannel) return; // Already listening
+        if (appState.realtimeChannel) return;
         appState.realtimeChannel = appState.supabase.channel('public:locations')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, (payload) => {
                 const updatedLocationData = payload.new;
                 if (!updatedLocationData || updatedLocationData.user_id === appState.currentUser.id || !appState.friends[updatedLocationData.user_id]) return;
                 
                 const friendId = updatedLocationData.user_id;
-                // Preserve the existing name, update location data
                 appState.friends[friendId] = {
                     ...appState.friends[friendId],
                     ...updatedLocationData
                 };
                 
                 renderFriendList();
-                // Pass the full friend object to updateFriendMarker, which includes the name
                 updateFriendMarker(appState.friends[friendId]);
             }).subscribe();
     };
@@ -798,6 +836,7 @@
             else if(appState.userMarker) appState.map.setView(appState.userMarker.getLatLng(), 18);
             else appState.map.setView(lyceeCenter, 16);
         });
+        ui.centerMapBtn.addEventListener('click', handleCenterMapClick);
 
         // Settings
         ui.shareLocationToggle.addEventListener('change', (e) => {
