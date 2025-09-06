@@ -391,7 +391,7 @@
             zoomControl: false, 
             attributionControl: true,
         });
-        
+                
         appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
         });
@@ -588,7 +588,7 @@
                 updateUserMarker(pos.coords);
             },
             (err) => {
-                showPermanentBanner("Erreur ou perte de la géolocalisation.");
+                showPermanentBanner("Géolocalisation en pause. Revenez à l'app pour réactiver.");
                 stopLocationTracking();
             }, 
             highAccuracyOptions
@@ -623,6 +623,13 @@
         const distance = latLng.distanceTo(lyceeCenter);
         if (distance > 1000) {
             showPermanentBanner("Vous êtes en dehors de la zone du lycée");
+            if(appState.userMarker) {
+                appState.map.removeLayer(appState.userMarker);
+                appState.map.removeLayer(appState.userAccuracyCircle);
+                appState.userMarker = null;
+                appState.userAccuracyCircle = null;
+            }
+            return;
         } else {
             ui.topBanner.classList.add('hidden');
         }
@@ -1000,7 +1007,13 @@
             ui.confirmDeleteModal.classList.add('hidden');
             appState.friendToDelete = null;
         });
-
+        
+        // Listen for visibility change to re-start geolocation
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && appState.isSharing && !appState.watchId && appState.currentUser) {
+                startLocationTracking();
+            }
+        });
     };
     
     const showView = (viewName) => {
