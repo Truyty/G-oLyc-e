@@ -323,15 +323,11 @@
 
     const initSupabase = async () => {
         appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        // Listen for authentication state changes
-        appState.supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN') {
-                appState.currentUser = session.user;
-                await loadApp();
-            } else if (event === 'SIGNED_OUT') {
+    
+        // This listener only handles SIGNED_OUT events, which simplifies the logic
+        appState.supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') {
                 appState.currentUser = null;
-                // Clean up UI and state
                 ui.appContainer.classList.add('hidden');
                 ui.authView.classList.remove('hidden');
                 ui.loader.classList.add('hidden');
@@ -342,14 +338,17 @@
                 stopLocationTracking();
             }
         });
-
-        // Check initial session
+    
+        // Directly check for a session on page load
         const { data: { session } } = await appState.supabase.auth.getSession();
-        if (!session) {
+    
+        if (session) {
+            appState.currentUser = session.user;
+            await loadApp();
+        } else {
             ui.loader.classList.add('hidden');
             ui.authView.classList.remove('hidden');
         }
-        // onAuthStateChange will handle the case where a session exists
     };
     
     const initMap = () => {
@@ -377,29 +376,38 @@
     const loadApp = async () => {
         ui.authView.classList.add('hidden');
         ui.loader.classList.remove('hidden');
-
-        const { data, error } = await appState.supabase
+    
+        // Step 1: Fetch profile
+        const { data: profile, error: profileError } = await appState.supabase
             .from('profiles')
-            .select(`
-                full_name,
-                locations ( is_sharing )
-            `)
+            .select('full_name')
             .eq('id', appState.currentUser.id)
             .single();
-
-        if (error) {
-            console.error("Error fetching user profile:", error);
+    
+        if (profileError) {
+            console.error("Error fetching user profile:", profileError);
             ui.loader.classList.add('hidden');
-            return showStatus("Erreur lors du chargement du profil.", 'error');
+            handleLogout(); // Log out user if profile is not found
+            return showStatus("Erreur de profil, reconnexion requise.", 'error');
+        }
+    
+        // Step 2: Fetch location
+        const { data: location, error: locationError } = await appState.supabase
+            .from('locations')
+            .select('is_sharing')
+            .eq('user_id', appState.currentUser.id)
+            .single();
+        
+        if (locationError && locationError.code !== 'PGRST116') { // PGRST116 = no rows found, which is ok
+             console.error("Error fetching user location:", locationError);
         }
         
         ui.loader.classList.add('hidden');
         ui.appContainer.classList.remove('hidden');
         
-        if (data && data.full_name) {
-            appState.userName = data.full_name;
-            const locationInfo = Array.isArray(data.locations) ? data.locations[0] : data.locations;
-            appState.isSharing = locationInfo?.is_sharing ?? true;
+        if (profile && profile.full_name) {
+            appState.userName = profile.full_name;
+            appState.isSharing = location?.is_sharing ?? true;
             ui.shareLocationToggle.checked = appState.isSharing;
             
             showView('map');
@@ -407,14 +415,13 @@
             appState.map.whenReady(async () => {
                 const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
                 appState.map.setMaxBounds(mapBounds);
-
+    
                 await fetchAndDisplayFriends();
-                // We no longer try to get location on load.
-                // The user must click the center button.
                 showStatus("Cliquez sur la cible pour afficher votre position.", "info");
                 listenToFriendLocations();
             });
         } else {
+            // This case should ideally not be reached if signup process is correct, but is a good fallback.
             ui.nameModal.style.display = 'flex';
         }
     };
@@ -439,7 +446,7 @@
         ui.signupStatus.textContent = "Création du compte...";
         ui.signupStatus.className = "text-blue-600";
         
-        const { error } = await appState.supabase.auth.signUp({
+        const { data, error } = await appState.supabase.auth.signUp({
             email,
             password,
             options: {
@@ -456,9 +463,11 @@
                  ui.signupStatus.textContent = error.message;
             }
             ui.signupStatus.className = "text-red-600";
-        } else {
+        } else if (data.session) {
             ui.signupStatus.textContent = "Compte créé avec succès !";
             ui.signupStatus.className = "text-green-600";
+            appState.currentUser = data.session.user;
+            await loadApp();
         }
     };
     
@@ -475,7 +484,7 @@
         ui.loginStatus.textContent = "Connexion...";
         ui.loginStatus.className = "text-blue-600";
         
-        const { error } = await appState.supabase.auth.signInWithPassword({
+        const { data, error } = await appState.supabase.auth.signInWithPassword({
             email,
             password,
         });
@@ -483,6 +492,9 @@
         if (error) {
             ui.loginStatus.textContent = "Nom, prénom ou mot de passe incorrect.";
             ui.loginStatus.className = "text-red-600";
+        } else if (data.session) {
+            appState.currentUser = data.session.user;
+            await loadApp();
         }
     };
 
@@ -671,10 +683,11 @@
 
     const fetchAndDisplayFriends = async () => {
         if (!appState.currentUser) return;
-        const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
-        if (!relations) return;
+        const { data: relations, error: relationsError } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
+        if (relationsError || !relations) return;
+    
         const friendIds = relations.map(r => r.friend_id);
-        
+    
         Object.values(appState.friendMarkers).forEach(marker => appState.map.removeLayer(marker));
         appState.friendMarkers = {};
         
@@ -683,27 +696,43 @@
             return renderFriendList();
         }
         
-        const { data: friendsData, error } = await appState.supabase
+        // Step 1: Fetch profiles
+        const { data: friendsProfiles, error: profilesError } = await appState.supabase
             .from('profiles')
-            .select(`id, full_name, locations (lat, lng, is_sharing)`)
+            .select(`id, full_name`)
             .in('id', friendIds);
-
-        if (error || !friendsData) {
-            console.error("Error fetching friends data:", error);
+        
+        if (profilesError || !friendsProfiles) {
+            console.error("Error fetching friends profiles:", profilesError);
             return;
         }
         
+        // Step 2: Fetch locations
+        const { data: friendsLocations, error: locationsError } = await appState.supabase
+            .from('locations')
+            .select(`user_id, lat, lng, is_sharing`)
+            .in('user_id', friendIds);
+            
+        if (locationsError) {
+            console.error("Error fetching friends locations:", locationsError);
+        }
+        
+        const locationsMap = new Map();
+        if (friendsLocations) {
+            friendsLocations.forEach(loc => locationsMap.set(loc.user_id, loc));
+        }
+        
         appState.friends = {};
-        friendsData.forEach(friendProfile => {
-            const locationInfo = Array.isArray(friendProfile.locations) ? friendProfile.locations[0] : friendProfile.locations;
+        friendsProfiles.forEach(profile => {
+            const locationInfo = locationsMap.get(profile.id);
             const friendObject = {
-                user_id: friendProfile.id,
-                name: friendProfile.full_name,
+                user_id: profile.id,
+                name: profile.full_name,
                 lat: locationInfo?.lat,
                 lng: locationInfo?.lng,
-                is_sharing: locationInfo?.is_sharing
+                is_sharing: locationInfo?.is_sharing ?? true
             };
-            appState.friends[friendProfile.id] = friendObject;
+            appState.friends[profile.id] = friendObject;
             updateFriendMarker(friendObject);
         });
         renderFriendList();
@@ -818,11 +847,8 @@
             appState.isSharing = e.target.checked;
             updateSupabaseLocation({ is_sharing: appState.isSharing });
             if(appState.isSharing) {
-                if (appState.geolocationEnabled) {
-                    startLocationTracking();
-                } else {
-                    showStatus("Cliquez sur la cible pour activer la géolocalisation.", "info");
-                }
+                // Do not automatically start tracking, user must click the button
+                showStatus("Partage activé. Cliquez sur la cible pour mettre à jour.", "info");
             } else {
                 stopLocationTracking();
             }
