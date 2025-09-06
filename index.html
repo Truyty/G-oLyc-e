@@ -139,6 +139,17 @@
              <button id="close-scanner-modal-btn" class="mt-4 bg-red-500 text-white px-6 py-2 rounded-lg font-bold">Annuler</button>
         </div>
     </div>
+    
+    <div id="confirm-delete-modal" class="modal-backdrop hidden">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Supprimer un ami</h2>
+            <p class="text-gray-600 mb-6" id="confirm-delete-text">Êtes-vous sûr de vouloir supprimer cet ami ?</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancel-delete-btn" class="w-full bg-gray-200 text-gray-800 p-3 rounded-lg font-bold hover:bg-gray-300">Annuler</button>
+                <button id="confirm-delete-btn" class="w-full bg-red-500 text-white p-3 rounded-lg font-bold hover:bg-red-600">Supprimer</button>
+            </div>
+        </div>
+    </div>
 
     <div id="paste-id-modal" class="modal-backdrop hidden">
         <div class="bg-white p-6 sm:p-8 rounded-2xl text-center w-full max-w-sm shadow-2xl relative">
@@ -172,14 +183,17 @@
             </div>
             <div id="friends-view" class="w-full h-full bg-gray-50 p-6 pt-24 overflow-y-auto hidden">
                 <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Amis</h2>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-gray-800">Amis</h2>
+                        <button id="edit-friends-btn" class="text-blue-600 font-semibold hover:text-blue-800">Modifier</button>
+                    </div>
                     <div class="grid grid-cols-2 gap-4 mb-8">
                          <button id="my-qr-code-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition flex flex-col items-center justify-center">
                              <svg class="w-8 h-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 013.75 9.375v-4.5zM3.75 14.625c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5a1.875 1.875 0 01-1.875-1.875v-4.5zM13.5 4.875c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 0113.5 9.375v-4.5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 15.75a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM16.5 15.75a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM18.75 15.75a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM14.25 18a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM16.5 18a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM18.75 18a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM14.25 20.25a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM16.5 20.25a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008zM18.75 20.25a.75.75 0 00.75.75h.008a.75.75 0 00.75-.75v-.008a.75.75 0 00-.75-.75h-.008a.75.75 0 00-.75.75v.008z" /></svg>
                             <span class="font-semibold text-gray-700">Mon QR Code</span>
                         </button>
                          <button id="add-friend-btn" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-gray-50 transition flex flex-col items-center justify-center">
-                            <svg class="w-8 h-8 mx-auto text-purple-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" /></svg>
+                            <svg class="w-8 h-8 mx-auto text-purple-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.5 21.75c-2.636 0-5.053-.94-6.9-2.515z" /></svg>
                             <span class="font-semibold text-gray-700">Ajouter un ami</span>
                         </button>
                     </div>
@@ -267,7 +281,7 @@
         map: null, supabase: null, currentUser: null, userMarker: null, userAccuracyCircle: null,
         friendMarkers: {}, friends: {}, userName: "", isSharing: true, watchId: null,
         html5QrCode: null, geolocationEnabled: false, mapLayers: {}, isScannerDisabled: true,
-        realtimeChannel: null
+        realtimeChannel: null, isEditingFriends: false, friendToDelete: null
     };
 
     // --- UI Elements ---
@@ -296,6 +310,7 @@
             views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
             buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
             centerMapBtn: document.getElementById('center-map-btn'),
+            editFriendsBtn: document.getElementById('edit-friends-btn'),
             // Modals
             nameModal: document.getElementById('name-input-modal'),
             nameInput: document.getElementById('name-input'),
@@ -310,6 +325,10 @@
             pasteIdInput: document.getElementById('paste-id-input'),
             addFriendFromIdBtn: document.getElementById('add-friend-from-id-btn'),
             closePasteIdModalBtn: document.getElementById('close-paste-id-modal-btn'),
+            confirmDeleteModal: document.getElementById('confirm-delete-modal'),
+            confirmDeleteText: document.getElementById('confirm-delete-text'),
+            confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
+            cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
             // In-App Elements
             status: document.getElementById('status'),
             friendsList: document.getElementById('friends-list'),
@@ -338,7 +357,6 @@
     const initSupabase = async () => {
         appState.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-        // This listener only handles SIGNED_OUT events, which simplifies the logic
         appState.supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
                 appState.currentUser = null;
@@ -353,7 +371,6 @@
             }
         });
     
-        // Directly check for a session on page load
         const { data: { session } } = await appState.supabase.auth.getSession();
     
         if (session) {
@@ -368,9 +385,9 @@
     const initMap = () => {
         appState.map = L.map('map', { 
             center: lyceeCenter, 
-            zoom: 18, 
+            zoom: 17, 
             minZoom: 16,
-            maxZoom: 18,
+            maxZoom: 17,
             zoomControl: false, 
             attributionControl: true,
         });
@@ -391,7 +408,6 @@
         ui.authView.classList.add('hidden');
         ui.loader.classList.remove('hidden');
     
-        // Step 1: Fetch profile
         const { data: profile, error: profileError } = await appState.supabase
             .from('profiles')
             .select('full_name')
@@ -401,18 +417,17 @@
         if (profileError) {
             console.error("Error fetching user profile:", profileError);
             ui.loader.classList.add('hidden');
-            handleLogout(); // Log out user if profile is not found
+            handleLogout();
             return showStatus("Erreur de profil, reconnexion requise.", 'error');
         }
     
-        // Step 2: Fetch location
         const { data: location, error: locationError } = await appState.supabase
             .from('locations')
             .select('is_sharing')
             .eq('user_id', appState.currentUser.id)
             .single();
         
-        if (locationError && locationError.code !== 'PGRST116') { // PGRST116 = no rows found, which is ok
+        if (locationError && locationError.code !== 'PGRST116') {
              console.error("Error fetching user location:", locationError);
         }
         
@@ -435,7 +450,6 @@
                 listenToFriendLocations();
             });
         } else {
-            // This case should ideally not be reached if signup process is correct, but is a good fallback.
             ui.nameModal.style.display = 'flex';
         }
     };
@@ -605,6 +619,13 @@
     const updateUserMarker = (coords) => {
         const { latitude, longitude, accuracy } = coords;
         const latLng = L.latLng(latitude, longitude);
+
+        const distance = latLng.distanceTo(lyceeCenter);
+        if (distance > 1000) {
+            showPermanentBanner("Vous êtes en dehors de la zone du lycée");
+        } else {
+            ui.topBanner.classList.add('hidden');
+        }
         
         let userIconHtml = `
             <div class="relative w-6 h-6 flex items-center justify-center">
@@ -643,10 +664,7 @@
                 if (!updatedLocationData || updatedLocationData.user_id === appState.currentUser.id || !appState.friends[updatedLocationData.user_id]) return;
                 
                 const friendId = updatedLocationData.user_id;
-                appState.friends[friendId] = {
-                    ...appState.friends[friendId],
-                    ...updatedLocationData
-                };
+                appState.friends[friendId] = { ...appState.friends[friendId], ...updatedLocationData };
                 
                 renderFriendList();
                 updateFriendMarker(appState.friends[friendId]);
@@ -685,7 +703,10 @@
         const { data: friendExists, error: fetchError } = await appState.supabase.from('profiles').select('full_name').eq('id', friendId).single();
         if (fetchError || !friendExists) return showStatus("Utilisateur introuvable.", 'error');
 
-        const { error: insertError } = await appState.supabase.from('friends').insert({ user_id: appState.currentUser.id, friend_id: friendId });
+        const { error: insertError } = await appState.supabase.from('friends').insert([
+            { user_id: appState.currentUser.id, friend_id: friendId },
+            { user_id: friendId, friend_id: appState.currentUser.id }
+        ]);
         if (insertError) {
             if (insertError.code === '23505') showStatus(`${friendExists.full_name} est déjà votre ami.`, 'warning');
             else showStatus("Erreur lors de l'ajout.", 'error');
@@ -694,6 +715,30 @@
             await fetchAndDisplayFriends();
         }
     };
+    
+    const removeFriend = async () => {
+        const friendId = appState.friendToDelete;
+        if (!friendId) return;
+
+        const { error } = await appState.supabase.from('friends')
+            .delete()
+            .or(`(user_id.eq.${appState.currentUser.id},friend_id.eq.${friendId}),(user_id.eq.${friendId},friend_id.eq.${appState.currentUser.id})`);
+
+        if (error) {
+            showStatus("Erreur lors de la suppression.", 'error');
+        } else {
+            showStatus("Ami supprimé.", 'success');
+            delete appState.friends[friendId];
+            if(appState.friendMarkers[friendId]) {
+                appState.map.removeLayer(appState.friendMarkers[friendId]);
+                delete appState.friendMarkers[friendId];
+            }
+            renderFriendList();
+        }
+        ui.confirmDeleteModal.classList.add('hidden');
+        appState.friendToDelete = null;
+    };
+
 
     const fetchAndDisplayFriends = async () => {
         if (!appState.currentUser) return;
@@ -710,7 +755,6 @@
             return renderFriendList();
         }
         
-        // Step 1: Fetch profiles
         const { data: friendsProfiles, error: profilesError } = await appState.supabase
             .from('profiles')
             .select(`id, full_name`)
@@ -721,7 +765,6 @@
             return;
         }
         
-        // Step 2: Fetch locations
         const { data: friendsLocations, error: locationsError } = await appState.supabase
             .from('locations')
             .select(`user_id, lat, lng, is_sharing`)
@@ -754,12 +797,16 @@
 
     // --- UI Rendering & Helpers ---
     const getLocationStatus = (lat, lng) => {
-        const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
-        if (!lat || !lng) return "Position inconnue";
         const point = L.latLng(lat, lng);
+        const distance = point.distanceTo(lyceeCenter);
+        
+        if (!lat || !lng) return "Position inconnue";
+        if (distance > 1000) return "En dehors de la zone";
+
+        const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
         if (lyceeZone.getBounds().contains(point)) return "Au lycée";
-        if (point.distanceTo(lyceeCenter) < 1500) return "Proche du lycée";
-        return "Loin du lycée";
+
+        return "Proche du lycée";
     };
 
     const renderFriendList = () => {
@@ -773,15 +820,38 @@
             const friend = appState.friends[id];
             const status = friend.is_sharing === false ? "Partage désactivé" : getLocationStatus(friend.lat, friend.lng);
             const li = document.createElement('li');
-            li.className = 'bg-white p-3 rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer';
+            li.className = 'bg-white p-3 rounded-lg shadow-sm flex items-center justify-between';
+            
+            let actionButton;
+            if (appState.isEditingFriends) {
+                actionButton = `<button data-friend-id="${id}" data-friend-name="${friend.name}" class="remove-friend-btn text-red-500 hover:text-red-700">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                 </button>`;
+            } else {
+                actionButton = `<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>`;
+            }
+
             li.innerHTML = `
-                <div class="flex items-center justify-between">
+                <div class="flex-grow cursor-pointer" data-friend-id="${id}">
                     <span class="font-medium text-gray-800">${friend.name || 'Ami'}</span>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    <p class="text-sm text-gray-500 mt-1">${status}</p>
                 </div>
-                <p class="text-sm text-gray-500 mt-1">${status}</p>`;
-            li.addEventListener('click', () => centerOnFriend(id));
+                ${actionButton}`;
+            
             ui.friendsList.appendChild(li);
+        });
+        
+        // Add event listeners after rendering
+        ui.friendsList.querySelectorAll('[data-friend-id]').forEach(el => {
+            if(el.classList.contains('remove-friend-btn')) {
+                el.addEventListener('click', (e) => {
+                    appState.friendToDelete = e.currentTarget.dataset.friendId;
+                    ui.confirmDeleteText.textContent = `Êtes-vous sûr de vouloir supprimer ${e.currentTarget.dataset.friendName} ?`;
+                    ui.confirmDeleteModal.classList.remove('hidden');
+                });
+            } else if (!appState.isEditingFriends) {
+                el.addEventListener('click', (e) => centerOnFriend(e.currentTarget.dataset.friendId));
+            }
         });
     };
 
@@ -874,13 +944,17 @@
             else appState.map.setView(lyceeCenter, 18);
         });
         ui.centerMapBtn.addEventListener('click', handleCenterMapClick);
+        ui.editFriendsBtn.addEventListener('click', () => {
+            appState.isEditingFriends = !appState.isEditingFriends;
+            ui.editFriendsBtn.textContent = appState.isEditingFriends ? 'Terminer' : 'Modifier';
+            renderFriendList();
+        });
 
         // Settings
         ui.shareLocationToggle.addEventListener('change', (e) => {
             appState.isSharing = e.target.checked;
             updateSupabaseLocation({ is_sharing: appState.isSharing });
             if(appState.isSharing) {
-                // Do not automatically start tracking, user must click the button
                 showStatus("Partage activé. Cliquez sur la cible pour mettre à jour.", "info");
             } else {
                 stopLocationTracking();
@@ -921,6 +995,12 @@
             }
         });
         ui.closeScannerModalBtn.addEventListener('click', stopQrScanner);
+        ui.confirmDeleteBtn.addEventListener('click', removeFriend);
+        ui.cancelDeleteBtn.addEventListener('click', () => {
+            ui.confirmDeleteModal.classList.add('hidden');
+            appState.friendToDelete = null;
+        });
+
     };
     
     const showView = (viewName) => {
@@ -929,7 +1009,11 @@
         document.querySelectorAll('.menu-btn-container').forEach(el => el.classList.remove('active-menu'));
         ui.buttons[viewName].classList.add('active-menu');
         if (viewName === 'map') appState.map.invalidateSize();
-        if (viewName === 'friends') fetchAndDisplayFriends();
+        if (viewName === 'friends') {
+            appState.isEditingFriends = false; // Reset edit mode when switching to friends view
+            ui.editFriendsBtn.textContent = 'Modifier';
+            fetchAndDisplayFriends();
+        }
     };
 
     const showStatus = (message, type = 'info') => {
