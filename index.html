@@ -387,11 +387,11 @@
             center: lyceeCenter, 
             zoom: 17, 
             minZoom: 16,
-            maxZoom: 17,
+            maxZoom: 18,
             zoomControl: false, 
             attributionControl: true,
         });
-                
+        
         appState.mapLayers.noLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO', maxNativeZoom: 19
         });
@@ -442,7 +442,7 @@
             showView('map');
             
             appState.map.whenReady(async () => {
-                const mapBounds = L.circle(lyceeCenter, { radius: 1000 }).getBounds();
+                const mapBounds = L.latLng(lyceeCenter).toBounds(2000); // 2km diameter
                 appState.map.setMaxBounds(mapBounds);
     
                 await fetchAndDisplayFriends();
@@ -617,7 +617,7 @@
 
     // --- Map & Markers ---
     const updateUserMarker = (coords) => {
-        const { latitude, longitude, accuracy } = coords;
+        const { latitude, longitude, accuracy, heading, speed } = coords;
         const latLng = L.latLng(latitude, longitude);
 
         const distance = latLng.distanceTo(lyceeCenter);
@@ -634,7 +634,16 @@
             ui.topBanner.classList.add('hidden');
         }
         
-        let userIconHtml = `
+        let userIconHtml;
+        if (speed && speed > 1 && heading !== null && !isNaN(heading)) {
+            userIconHtml = `
+                <div class="relative w-8 h-8 flex items-center justify-center" style="transform: rotate(${heading}deg);">
+                    <svg class="w-8 h-8 text-blue-600 filter drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </div>`;
+        } else {
+            userIconHtml = `
             <div class="relative w-6 h-6 flex items-center justify-center">
                 <div class="pulse-ring"></div>
                 <svg class="w-6 h-6 text-blue-500 filter drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor">
@@ -642,12 +651,14 @@
                     <circle cx="12" cy="12" r="5" fill="currentColor"/>
                 </svg>
             </div>`;
+        }
+
 
         const userIcon = L.divIcon({
             className: 'custom-user-icon',
             html: userIconHtml,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
         });
 
         if (!appState.userMarker) {
@@ -682,19 +693,21 @@
         const friendId = friendData.user_id;
         const friendName = friendData.name || 'Ami';
         const shouldDisplay = friendData.is_sharing && friendData.lat && friendData.lng;
-
-        if (!shouldDisplay) {
+        
+        if (!shouldDisplay || L.latLng(friendData.lat, friendData.lng).distanceTo(lyceeCenter) > 1000) {
             if (appState.friendMarkers[friendId]) {
                 appState.map.removeLayer(appState.friendMarkers[friendId]);
                 delete appState.friendMarkers[friendId];
             }
             return;
         }
+
         const friendIcon = L.divIcon({
             className: 'custom-friend-icon',
             html: `<svg class="w-8 h-8 text-purple-700 filter drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>`,
             iconSize: [32, 32], iconAnchor: [16, 32]
         });
+
         if (appState.friendMarkers[friendId]) {
             appState.friendMarkers[friendId].setLatLng([friendData.lat, friendData.lng]).setTooltipContent(friendName);
         } else {
@@ -710,13 +723,11 @@
         const { data: friendExists, error: fetchError } = await appState.supabase.from('profiles').select('full_name').eq('id', friendId).single();
         if (fetchError || !friendExists) return showStatus("Utilisateur introuvable.", 'error');
 
-        const { error: insertError } = await appState.supabase.from('friends').insert([
-            { user_id: appState.currentUser.id, friend_id: friendId },
-            { user_id: friendId, friend_id: appState.currentUser.id }
-        ]);
-        if (insertError) {
-            if (insertError.code === '23505') showStatus(`${friendExists.full_name} est déjà votre ami.`, 'warning');
-            else showStatus("Erreur lors de l'ajout.", 'error');
+        const { error } = await appState.supabase.rpc('add_friend', { friend_uuid: friendId });
+        
+        if (error) {
+            showStatus("Erreur lors de l'ajout.", 'error');
+            console.error(error);
         } else {
             showStatus(`${friendExists.full_name} a été ajouté(e) !`, 'success');
             await fetchAndDisplayFriends();
@@ -727,9 +738,7 @@
         const friendId = appState.friendToDelete;
         if (!friendId) return;
 
-        const { error } = await appState.supabase.from('friends')
-            .delete()
-            .or(`(user_id.eq.${appState.currentUser.id},friend_id.eq.${friendId}),(user_id.eq.${friendId},friend_id.eq.${appState.currentUser.id})`);
+        const { error } = await appState.supabase.rpc('remove_friend', { friend_uuid: friendId });
 
         if (error) {
             showStatus("Erreur lors de la suppression.", 'error');
@@ -804,10 +813,10 @@
 
     // --- UI Rendering & Helpers ---
     const getLocationStatus = (lat, lng) => {
+        if (!lat || !lng) return "Position inconnue";
         const point = L.latLng(lat, lng);
         const distance = point.distanceTo(lyceeCenter);
         
-        if (!lat || !lng) return "Position inconnue";
         if (distance > 1000) return "En dehors de la zone";
 
         const lyceeZone = L.circle(lyceeCenter, { radius: 250 });
