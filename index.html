@@ -70,7 +70,13 @@
                     <form id="signup-form">
                         <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
                         <input id="signup-lastname" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
-                        <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="new-password">
+                        <div class="relative">
+                            <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg pr-10" autocomplete="new-password">
+                            <button type="button" id="toggle-signup-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600" style="top: -0.5rem;">
+                                <svg class="w-5 h-5 eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                <svg class="w-5 h-5 eye-slashed-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                            </button>
+                        </div>
                         <div id="signup-status" class="mb-4 text-sm font-semibold text-center"></div>
                         <button id="signup-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Créer un compte</button>
                     </form>
@@ -87,7 +93,13 @@
                     <form id="login-form">
                         <input id="login-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
                         <input id="login-lastname" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
-                        <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
+                        <div class="relative">
+                           <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg pr-10" autocomplete="current-password">
+                           <button type="button" id="toggle-login-password" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600" style="top: -0.5rem;">
+                               <svg class="w-5 h-5 eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                               <svg class="w-5 h-5 eye-slashed-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                           </button>
+                        </div>
                         <div id="login-status" class="mb-4 text-sm font-semibold text-center"></div>
                         <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Se connecter</button>
                     </form>
@@ -278,6 +290,8 @@
             showLoginBtn: document.getElementById('show-login-btn'),
             showSignupBtn: document.getElementById('show-signup-btn'),
             logoutBtn: document.getElementById('logout-btn'),
+            toggleSignupPasswordBtn: document.getElementById('toggle-signup-password'),
+            toggleLoginPasswordBtn: document.getElementById('toggle-login-password'),
             // App Views & Buttons
             views: { map: document.getElementById('map-view'), friends: document.getElementById('friends-view'), settings: document.getElementById('settings-view') },
             buttons: { map: document.getElementById('map-btn-container'), friends: document.getElementById('friends-btn-container'), settings: document.getElementById('settings-btn-container') },
@@ -354,9 +368,9 @@
     const initMap = () => {
         appState.map = L.map('map', { 
             center: lyceeCenter, 
-            zoom: 16, 
+            zoom: 18, 
             minZoom: 16,
-            maxZoom: 19,
+            maxZoom: 18,
             zoomControl: false, 
             attributionControl: true,
         });
@@ -831,6 +845,25 @@
             ui.signupContainer.classList.remove('hidden');
         });
 
+        const setupPasswordToggle = (toggleBtn, passwordInput) => {
+            const eyeIcon = toggleBtn.querySelector('.eye-icon');
+            const eyeSlashedIcon = toggleBtn.querySelector('.eye-slashed-icon');
+
+            toggleBtn.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    eyeIcon.classList.add('hidden');
+                    eyeSlashedIcon.classList.remove('hidden');
+                } else {
+                    passwordInput.type = 'password';
+                    eyeIcon.classList.remove('hidden');
+                    eyeSlashedIcon.classList.add('hidden');
+                }
+            });
+        };
+        setupPasswordToggle(ui.toggleSignupPasswordBtn, document.getElementById('signup-password'));
+        setupPasswordToggle(ui.toggleLoginPasswordBtn, document.getElementById('login-password'));
+
         // App
         ui.saveNameBtn.addEventListener('click', saveUserName);
         ui.buttons.friends.addEventListener('click', () => showView('friends'));
@@ -838,7 +871,7 @@
         ui.buttons.map.addEventListener('click', () => {
             if (ui.views.map.classList.contains('hidden')) showView('map');
             else if(appState.userMarker) appState.map.setView(appState.userMarker.getLatLng(), 18);
-            else appState.map.setView(lyceeCenter, 16);
+            else appState.map.setView(lyceeCenter, 18);
         });
         ui.centerMapBtn.addEventListener('click', handleCenterMapClick);
 
