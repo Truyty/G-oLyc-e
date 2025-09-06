@@ -409,7 +409,9 @@
                 appState.map.setMaxBounds(mapBounds);
 
                 await fetchAndDisplayFriends();
-                initializeGeolocation();
+                // We no longer try to get location on load.
+                // The user must click the center button.
+                showStatus("Cliquez sur la cible pour afficher votre position.", "info");
                 listenToFriendLocations();
             });
         } else {
@@ -509,72 +511,31 @@
     };
 
     // --- Geolocation ---
-    const initializeGeolocation = async () => {
-        if (!("geolocation" in navigator) || !("permissions" in navigator)) {
-            showPermanentBanner("Géolocalisation non supportée par ce navigateur.");
-            appState.geolocationEnabled = false;
-            return;
+    const handleCenterMapClick = async () => {
+        if (!appState.isSharing) {
+            return showStatus("Activez le partage de position dans les paramètres.", "warning");
         }
-
-        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-
-        const handlePermissionState = () => {
-            if (permissionStatus.state === 'granted') {
-                appState.geolocationEnabled = true;
-                // NE PAS DÉMARRER LE SUIVI AUTOMATIQUEMENT LORS DU CHARGEMENT DE LA PAGE
-            } else if (permissionStatus.state === 'prompt') {
-                appState.geolocationEnabled = false;
-                 showStatus("Cliquez sur la cible pour activer la géolocalisation.", "info");
-            } else { // 'denied'
-                appState.geolocationEnabled = false;
-                showPermanentBanner("Géolocalisation refusée. Activez-la dans les paramètres du site.");
-            }
-        };
-
-        handlePermissionState();
-        permissionStatus.onchange = handlePermissionState;
-    };
-    
-    const requestGeolocationPermission = () => new Promise((resolve) => {
+        if (appState.userMarker) {
+            return appState.map.setView(appState.userMarker.getLatLng(), 18, { animate: true });
+        }
+        
         if (!("geolocation" in navigator)) {
-            return resolve({ success: false, error: "Géolocalisation non supportée." });
+            return showPermanentBanner("Géolocalisation non supportée par ce navigateur.");
         }
+
+        showStatus("Demande de permission...", "info");
         navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ success: true, position: pos }),
-            (error) => resolve({ success: false, error: { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur inconnue." }),
+            (pos) => {
+                appState.geolocationEnabled = true;
+                startLocationTracking();
+            },
+            (error) => {
+                appState.geolocationEnabled = false;
+                const errorMessage = { 1: "Géolocalisation refusée.", 2: "Position indisponible.", 3: "Délai dépassé." }[error.code] || "Erreur de géolocalisation.";
+                showPermanentBanner(errorMessage);
+            },
             highAccuracyOptions
         );
-    });
-
-    const handleCenterMapClick = async () => {
-        // Cas 1: Le suivi est déjà actif, il suffit de centrer la vue.
-        if (appState.userMarker) {
-            appState.map.setView(appState.userMarker.getLatLng(), 18, { animate: true });
-            return;
-        }
-    
-        // Si le partage est désactivé, informer l'utilisateur.
-        if (!appState.isSharing) {
-            showStatus("Activez le partage de position dans les paramètres.", "warning");
-            return;
-        }
-    
-        // Cas 2: La permission est déjà accordée mais le suivi n'est pas lancé (ex: au chargement de la page)
-        if (appState.geolocationEnabled && !appState.watchId) {
-            startLocationTracking();
-            return;
-        }
-    
-        // Cas 3: Nous n'avons pas la permission. La demander.
-        if (!appState.geolocationEnabled) {
-            const geoResult = await requestGeolocationPermission();
-            if (geoResult.success) {
-                appState.geolocationEnabled = true; // Mettre à jour l'état immédiatement
-                startLocationTracking();
-            } else {
-                showPermanentBanner(geoResult.error);
-            }
-        }
     };
     
     const startLocationTracking = () => {
@@ -598,12 +559,15 @@
         if (appState.watchId) {
             navigator.geolocation.clearWatch(appState.watchId);
             appState.watchId = null;
-            await updateSupabaseLocation({ is_sharing: false });
+            if (appState.currentUser) {
+                await updateSupabaseLocation({ is_sharing: false });
+            }
             showStatus("Partage de position arrêté.", 'info');
         }
     };
 
     const updateSupabaseLocation = async (data) => {
+        if (!appState.currentUser) return;
         try {
             await appState.supabase.from('locations').update(data).eq('user_id', appState.currentUser.id);
         } catch (e) {
@@ -706,6 +670,7 @@
     };
 
     const fetchAndDisplayFriends = async () => {
+        if (!appState.currentUser) return;
         const { data: relations } = await appState.supabase.from('friends').select('friend_id').eq('user_id', appState.currentUser.id);
         if (!relations) return;
         const friendIds = relations.map(r => r.friend_id);
@@ -853,8 +818,11 @@
             appState.isSharing = e.target.checked;
             updateSupabaseLocation({ is_sharing: appState.isSharing });
             if(appState.isSharing) {
-                if (appState.geolocationEnabled) startLocationTracking();
-                else showPermanentBanner("Activez la géolocalisation pour partager.");
+                if (appState.geolocationEnabled) {
+                    startLocationTracking();
+                } else {
+                    showStatus("Cliquez sur la cible pour activer la géolocalisation.", "info");
+                }
             } else {
                 stopLocationTracking();
             }
