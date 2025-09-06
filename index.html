@@ -70,7 +70,6 @@
                     <form id="signup-form">
                         <input id="signup-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
                         <input id="signup-lastname" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
-                        <input id="signup-email" type="email" placeholder="Adresse e-mail" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="email">
                         <input id="signup-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="new-password">
                         <div id="signup-status" class="mb-4 text-sm font-semibold text-center"></div>
                         <button id="signup-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Créer un compte</button>
@@ -86,7 +85,8 @@
                 <div class="bg-white p-8 rounded-2xl shadow-lg">
                     <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Se connecter</h2>
                     <form id="login-form">
-                        <input id="login-email" type="email" placeholder="Adresse e-mail" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="email">
+                        <input id="login-firstname" type="text" placeholder="Prénom" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="given-name">
+                        <input id="login-lastname" type="text" placeholder="Nom de famille" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="family-name">
                         <input id="login-password" type="password" placeholder="Mot de passe" required class="w-full p-3 mb-4 border rounded-lg" autocomplete="current-password">
                         <div id="login-status" class="mb-4 text-sm font-semibold text-center"></div>
                         <button id="login-btn" type="submit" class="w-full bg-blue-500 text-white p-3 rounded-lg font-bold hover:bg-blue-600">Se connecter</button>
@@ -240,8 +240,8 @@
     <script>
     // JS du fichier script.js intégré et corrigé ici
     const { createClient } = supabase;
-    const SUPABASE_URL = 'https://hmtwbxxyvmctuxdgonod.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdHdieHh5dm1jdHV4ZGdvbm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwOTM0NjUsImV4cCI6MjA3MjY2OTQ2NX0.jLI9BIgt7xRBXGtorL9hjLwVFv8jbagF5y4SzsK9Ya0';
+    const SUPABASE_URL = 'https://oswammgrwwifkfjqmhtw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2FtbWdyd3dpZmtmanFtaHR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxMzUwMjksImV4cCI6MjA3MjcxMTAyOX0.s3-JnnMO5NPWKkCqZF78lzIISQ7yosC-S5wK6I-54Q4';
 
     const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
     const lyceeCenter = [45.96239, 5.34721];
@@ -423,48 +423,68 @@
     // --- Event Handlers & User Actions ---
     const handleSignup = async (e) => {
         e.preventDefault();
-        const firstname = e.target.elements['signup-firstname'].value;
-        const lastname = e.target.elements['signup-lastname'].value;
-        const email = e.target.elements['signup-email'].value;
+        const firstname = e.target.elements['signup-firstname'].value.trim();
+        const lastname = e.target.elements['signup-lastname'].value.trim();
         const password = e.target.elements['signup-password'].value;
+
+        if (!firstname || !lastname) {
+             ui.signupStatus.textContent = "Le prénom et le nom sont requis.";
+             ui.signupStatus.className = "text-red-600";
+             return;
+        }
+
+        // Generate a unique, "fake" email for Supabase authentication
+        const sanitizedFirstname = firstname.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const sanitizedLastname = lastname.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const email = `${sanitizedFirstname}.${sanitizedLastname}@geolycee.app`;
         
         ui.signupStatus.textContent = "Création du compte...";
         ui.signupStatus.className = "text-blue-600";
         
         const { error } = await appState.supabase.auth.signUp({
-            email,
+            email, // Use the generated email
             password,
             options: {
                 data: {
-                    full_name: `${firstname} ${lastname}`.trim()
+                    full_name: `${firstname} ${lastname}`
                 }
             }
         });
         
         if (error) {
-            ui.signupStatus.textContent = error.message;
+            if (error.message.includes('unique constraint') || error.message.includes('User already registered')) {
+                 ui.signupStatus.textContent = "Un utilisateur avec ce nom et prénom existe déjà.";
+            } else {
+                 ui.signupStatus.textContent = error.message;
+            }
             ui.signupStatus.className = "text-red-600";
         } else {
-            ui.signupStatus.textContent = "Compte créé ! Veuillez vérifier vos e-mails pour confirmer.";
+            ui.signupStatus.textContent = "Compte créé avec succès !";
             ui.signupStatus.className = "text-green-600";
         }
     };
     
     const handleLogin = async (e) => {
         e.preventDefault();
-        const email = e.target.elements['login-email'].value;
+        const firstname = e.target.elements['login-firstname'].value.trim();
+        const lastname = e.target.elements['login-lastname'].value.trim();
         const password = e.target.elements['login-password'].value;
+
+        // Re-generate the same "fake" email used at signup
+        const sanitizedFirstname = firstname.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const sanitizedLastname = lastname.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const email = `${sanitizedFirstname}.${sanitizedLastname}@geolycee.app`;
         
         ui.loginStatus.textContent = "Connexion...";
         ui.loginStatus.className = "text-blue-600";
         
         const { error } = await appState.supabase.auth.signInWithPassword({
-            email,
+            email, // Use the generated email
             password,
         });
 
         if (error) {
-            ui.loginStatus.textContent = "Email ou mot de passe incorrect.";
+            ui.loginStatus.textContent = "Nom, prénom ou mot de passe incorrect.";
             ui.loginStatus.className = "text-red-600";
         }
         // onAuthStateChange will handle successful login
